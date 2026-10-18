@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schrödinger's Mouse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6e7c8; --bg2:#f0d9a8; --fg:#3a2a1a; --muted:#8a7256;
+  --card:#fff7e6; --card-border:#e6cfa3;
+  --hole:#5a4030; --hole-rim:#a67c52; --hole-open:#c89b64;
+  --accent:#ff8c42; --accent-fg:#fff; --star:#f5b301; --chip:#ffe9c2;
+  --shadow:0 6px 0 rgba(90,64,48,.15);
+}
+body.night{
+  --bg:#1f2740; --bg2:#141a2c; --fg:#f0ecdf; --muted:#aab0c4;
+  --card:#2a3350; --card-border:#3b476a;
+  --hole:#0d1120; --hole-rim:#4a5a86; --hole-open:#5c6d9c; --chip:#3b476a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  font-family:"Nunito",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:radial-gradient(circle at 50% 30%,var(--bg) 0%,var(--bg2) 100%);
+  color:var(--fg); transition:background .9s,color .9s;
+  display:flex;flex-direction:column;align-items:center;padding:16px;
+}
+.app{width:100%;max-width:560px}
+.screen{animation:fadein .3s}
+h1{font-size:2rem;font-weight:900;margin:.2em 0 .1em;letter-spacing:-.02em}
+h1 .m{display:inline-block;transform:rotate(-8deg)}
+h2{font-size:1.1rem;font-weight:900;margin:1.4em 0 .5em;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+p{line-height:1.5}
+.tagline{font-size:1.05rem;margin:0 0 .5em}
+.foot{color:var(--muted);font-size:.9rem}
+.btn{
+  font:inherit;font-weight:900;border:0;border-radius:999px;padding:.6em 1.2em;cursor:pointer;
+  background:var(--accent);color:var(--accent-fg);box-shadow:0 4px 0 rgba(0,0,0,.18);
+  transition:transform .08s;
+}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.18)}
+.btn.quiet{background:var(--card);color:var(--fg);border:2px solid var(--card-border);box-shadow:none;padding:.4em .9em}
+.btn.quiet:active{transform:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
+.lvl{
+  background:var(--card);border:2px solid var(--card-border);border-radius:18px;padding:12px;
+  cursor:pointer;box-shadow:var(--shadow);text-align:center;transition:transform .1s;
+}
+.lvl:hover{transform:translateY(-2px)}
+.lvl .big{font-size:2rem;font-weight:900;line-height:1}
+.lvl .name{font-weight:700;margin-top:4px}
+.lvl .sub{color:var(--muted);font-size:.85rem;margin-top:2px}
+.lvl .stars{color:var(--star);font-size:1.1rem;letter-spacing:.05em;margin-top:4px;min-height:1.3em}
+.lvl.boss{border-color:var(--accent)}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+header .title{font-weight:900;font-size:1.1rem;text-align:center}
+.hud{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin:4px 0}
+.stat{display:flex;flex-direction:column;align-items:center;min-width:70px}
+.stat .lbl{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.stat b{font-size:1.4rem;font-weight:900}
+svg#board{width:100%;height:auto;display:block;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.hole ellipse{fill:var(--hole);stroke:var(--hole-rim);stroke-width:4;cursor:pointer;transition:fill .3s,stroke .2s}
+.hole:hover ellipse{stroke:var(--accent)}
+.hole.sel ellipse{stroke:var(--accent);stroke-width:7}
+.hole.open ellipse{fill:var(--hole-open)}
+.hole text.num{fill:var(--fg);font-size:15px;font-weight:900;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.ghost,.mouse,.cat,.zz{text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.ghost{font-size:26px;opacity:.55;filter:grayscale(1) blur(.3px);transition:opacity .6s}
+.ghost.fade{opacity:0}
+.ghost.flicker{animation:flicker .18s steps(1) 5}
+.mouse{font-size:32px;animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+.cat{font-size:54px}
+.zz{font-size:22px;animation:floaty 1.2s ease-in-out infinite}
+.sun{font-size:28px;transition:opacity .6s}
+#msg{min-height:3em;text-align:center;font-weight:700;margin:4px 0;font-size:1.05rem}
+#log{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:1.8em}
+.chip{background:var(--chip);border-radius:999px;padding:2px 10px;font-size:.9rem;font-weight:700}
+.overlay{position:fixed;inset:0;background:rgba(40,30,20,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10;animation:fadein .25s}
+.card{
+  background:var(--card);color:var(--fg);border-radius:22px;padding:22px;max-width:420px;width:100%;
+  box-shadow:0 12px 30px rgba(0,0,0,.25);border:2px solid var(--card-border);
+}
+.card h3{margin:0 0 .3em;font-size:1.5rem;font-weight:900}
+.card .big{font-size:2.6rem;text-align:center;margin:.1em 0}
+.card .stars{color:var(--star);font-size:2.2rem;text-align:center;letter-spacing:.1em}
+.card .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+.seg{display:flex;background:var(--chip);border-radius:999px;padding:4px;margin:10px 0;gap:4px}
+.seg button{flex:1;font:inherit;font-weight:800;border:0;border-radius:999px;padding:.5em .4em;background:transparent;color:var(--fg);cursor:pointer}
+.seg button.on{background:var(--accent);color:var(--accent-fg)}
+.seghelp{color:var(--muted);font-size:.9rem;margin:0 0 4px;min-height:2.6em}
+.hidden{display:none!important}
+.kbd{color:var(--muted);font-size:.85rem;text-align:center;margin-top:10px}
+@keyframes pop{0%{transform:scale(0);transform-box:fill-box;transform-origin:center}100%{transform:scale(1);transform-box:fill-box;transform-origin:center}}
+@keyframes flicker{0%{opacity:.55}50%{opacity:.05}100%{opacity:.55}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<section id="levels" class="screen">
+  <h1>Schrödinger's <span class="m">🐭</span> Mouse</h1>
+  <p class="tagline">A mouse hides in a ring of holes and moves to a neighbouring hole every night. Each day you open two holes. How quickly can you be <em>sure</em> to catch it?</p>
+  <h2>Tutorial</h2><div class="grid" id="gridTutorial"></div>
+  <h2>Levels</h2><div class="grid" id="gridPlay"></div>
+  <h2>Free play</h2><div class="grid" id="gridFree"></div>
+  <p class="foot">Tap two holes to open them. On a keyboard, type the hole number. Press R to restart a level.</p>
+</section>
+
+<section id="game" class="screen hidden">
+  <header>
+    <button class="btn quiet" id="btnLevels">‹ Levels</button>
+    <div class="title" id="title"></div>
+    <button class="btn quiet" id="btnRestart">Restart</button>
+  </header>
+  <div class="hud">
+    <div class="stat"><span class="lbl">Day</span><b id="day">0</b></div>
+    <div class="stat"><span class="lbl">Par</span><b id="par">–</b></div>
+    <div class="stat" id="countStat"><span class="lbl">Could be in</span><b id="count">–</b></div>
+    <div class="stat"><span class="lbl">Mode</span><b id="modeTag" style="font-size:1rem;line-height:1.75rem">–</b></div>
+  </div>
+  <svg id="board" viewBox="0 0 400 400" aria-label="Ring of holes"></svg>
+  <p id="msg"></p>
+  <div id="log"></div>
+</section>
+
+</div>
+<div id="overlay" class="overlay hidden"><div class="card" id="card"></div></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+const el = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const rnd = n => Math.floor(Math.random() * n);
+const pick = a => a[rnd(a.length)];
+
+// Par on a circle, two openings, mouse must move: 2*floor((n-1)/2); n=1 and n=2 take one day.
+const par = n => n <= 2 ? 1 : 2 * Math.floor((n - 1) / 2);
+
+const MODES = {
+  ghost: { label: 'Ghosts', help: 'Every hole the mouse could be in shows a ghost. Practice: no stars are saved.' },
+  count: { label: 'Count',  help: 'You only see in how many holes the mouse could be. Stars count.' },
+  blind: { label: 'Blind',  help: 'You see nothing. Keep the ghosts in your head. Stars count.' },
+};
+
+const LEVELS = [
+  { id: 't1', n: 1, mouse: 'random', vis: 'ghost', group: 'tutorial', name: 'One hole',
+    intro: 'A mouse is hiding in a hole. There is only one hole, so this should be easy. Tap the hole to open it.' },
+  { id: 't2', n: 3, mouse: 'random', vis: 'ghost', group: 'tutorial', name: 'Three holes',
+    intro: 'Three holes. Each day you open two of them. Every night the mouse moves to a neighbouring hole, left or right. It never stays put. The faint mice are ghosts: they mark every hole the mouse could be in, given what you have seen so far.' },
+  { id: 't3', n: 5, mouse: 'random', vis: 'ghost', group: 'tutorial', name: 'Five holes',
+    intro: 'Watch the ghosts at night: each one spreads to both of its neighbours. Opening a hole removes its ghost. Try to open holes so that the ghosts cannot grow back. This mouse is real, so you may also just get lucky.' },
+  { id: 't4', n: 5, mouse: 'schro', vis: 'ghost', group: 'tutorial', name: "Schrödinger's mouse",
+    intro: 'This mouse is different. It is in every ghost hole at the same time, and only shows itself when you open all of its holes on the same day. No more luck: the ghosts are the whole truth. Five holes can be done in 4 days.' },
+  { id: 'l7',  n: 7,  mouse: 'schro', group: 'play', name: 'Seven',
+    intro: 'From here on you choose how much you get to see.' },
+  { id: 'l9',  n: 9,  mouse: 'schro', group: 'play', name: 'Nine' },
+  { id: 'l11', n: 11, mouse: 'schro', group: 'play', name: 'Eleven' },
+  { id: 'l13', n: 13, mouse: 'schro', group: 'play', name: 'Thirteen', boss: true,
+    intro: 'The original puzzle: thirteen caves, a thief who moves every night, two policemen. Twelve days is the proven minimum.' },
+  { id: 'f15', n: 15, mouse: 'schro', group: 'free', name: 'Fifteen' },
+  { id: 'f17', n: 17, mouse: 'schro', group: 'free', name: 'Seventeen' },
+  { id: 'f19', n: 19, mouse: 'schro', group: 'free', name: 'Nineteen' },
+  { id: 'f21', n: 21, mouse: 'schro', group: 'free', name: 'Twenty-one' },
+];
+
+// ---------- persistence (per browser; best effort) ----------
+const KEY = 'schro-mouse-v1';
+let prefs = (() => { try { const p = JSON.parse(localStorage.getItem(KEY)); if (p && p.done && p.best) return p; } catch (e) {} return { done: {}, best: {}, mode: 'ghost' }; })();
+function save() { try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch (e) {} }
+
+// ---------- level select ----------
+function starStr(s) { return '★'.repeat(s) + '☆'.repeat(3 - s); }
+function renderLevels() {
+  for (const g of ['tutorial', 'play', 'free']) {
+    const grid = $('#grid' + g[0].toUpperCase() + g.slice(1));
+    grid.innerHTML = '';
+    LEVELS.filter(L => L.group === g).forEach(L => {
+      const d = document.createElement('div');
+      d.className = 'lvl' + (L.boss ? ' boss' : '');
+      const best = prefs.best[L.id];
+      let stars = '';
+      if (g === 'tutorial') stars = prefs.done[L.id] ? '✓' : '';
+      else if (best) stars = starStr(best.stars) + ` <span class="sub">${best.days}d · ${MODES[best.mode].label.toLowerCase()}</span>`;
+      else if (prefs.done[L.id]) stars = '<span class="sub">practised</span>';
+      d.innerHTML = `<div class="big">${L.n}</div><div class="name">${L.name}</div>
+        <div class="sub">${L.n === 1 ? '1 hole' : L.n + ' holes'} · par ${par(L.n)}</div><div class="stars">${stars}</div>`;
+      d.addEventListener('click', () => showIntro(L));
+      grid.appendChild(d);
+    });
+  }
+}
+
+// ---------- overlays ----------
+function overlay(html) { $('#card').innerHTML = html; $('#overlay').classList.remove('hidden'); }
+function closeOverlay() { $('#overlay').classList.add('hidden'); }
+
+function showIntro(L) {
+  const choosable = L.group !== 'tutorial';
+  let mode = L.vis || prefs.mode || 'ghost';
+  const seg = choosable ? `<div class="seg" id="seg">${Object.keys(MODES).map(m =>
+      `<button data-m="${m}" class="${m === mode ? 'on' : ''}">${MODES[m].label}</button>`).join('')}</div><p class="seghelp" id="seghelp">${MODES[mode].help}</p>` : '';
+  overlay(`<h3>${L.name}</h3>
+    <p>${L.intro || ''}</p>
+    <p><b>${L.n === 1 ? '1 hole' : L.n + ' holes'}</b> · par <b>${par(L.n)} ${par(L.n) === 1 ? 'day' : 'days'}</b></p>
+    ${seg}
+    <div class="row"><button class="btn quiet" id="ovBack">Back</button><button class="btn" id="ovStart">Start</button></div>`);
+  if (choosable) $('#seg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    mode = b.dataset.m; prefs.mode = mode; save();
+    $('#seg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    $('#seghelp').textContent = MODES[mode].help;
+  }));
+  $('#ovBack').addEventListener('click', closeOverlay);
+  $('#ovStart').addEventListener('click', () => { closeOverlay(); start(L, mode); });
+}
+
+function showResult() {
+  const L = S.level, days = S.day;
+  const next = LEVELS[LEVELS.indexOf(L) + 1];
+  let html;
+  if (S.over === 'caught') {
+    const stars = days <= S.par ? 3 : days <= S.par + 2 ? 2 : 1;
+    const practice = S.vis === 'ghost' && L.group !== 'tutorial';
+    prefs.done[L.id] = true;
+    if (!practice && L.group !== 'tutorial') {
+      const b = prefs.best[L.id];
+      if (!b || stars > b.stars || (stars === b.stars && days < b.days)) prefs.best[L.id] = { stars, days, mode: S.vis };
+    }
+    save();
+    const verdict = days <= S.par ? 'Perfect. That is the fastest possible.' : days <= S.par + 2 ? 'Close to par.' : 'Caught, but the mouse made you work for it.';
+    html = `<h3>Caught on day ${days}</h3>
+      <div class="big">🐱 🐭</div>
+      ${L.group === 'tutorial' ? '' : `<div class="stars">${starStr(stars)}</div>`}
+      <p style="text-align:center">${S.mouse === 'random' && days < S.par ? 'Lucky! A Schrödinger mouse would have taken longer.' : verdict} Par is ${S.par}.
+      ${practice ? '<br><span class="foot">Practice run with ghosts: stars are not saved.</span>' : ''}</p>`;
+  } else {
+    html = `<h3>The mouse got away</h3>
+      <div class="big">🐭💨</div>
+      <p style="text-align:center">After ${days} days (twice par) the mouse stops playing. Try a steady rhythm: the two holes you open should never let the ghosts grow back.</p>`;
+  }
+  html += `<div class="row"><button class="btn quiet" id="ovLevels">Levels</button><button class="btn quiet" id="ovRetry">Retry</button>
+    ${next && S.over === 'caught' ? '<button class="btn" id="ovNext">Next</button>' : ''}</div>`;
+  overlay(html);
+  $('#ovLevels').addEventListener('click', () => { closeOverlay(); gotoLevels(); });
+  $('#ovRetry').addEventListener('click', () => { closeOverlay(); start(L, S.vis); });
+  if ($('#ovNext')) $('#ovNext').addEventListener('click', () => { closeOverlay(); showIntro(next); });
+}
+
+function gotoLevels() {
+  document.body.classList.remove('night');
+  S = null; renderLevels();
+  $('#game').classList.add('hidden'); $('#levels').classList.remove('hidden');
+}
+
+// ---------- game ----------
+let S = null;
+
+function start(L, vis) {
+  const n = L.n;
+  S = {
+    level: L, n, k: Math.min(2, n), vis: L.vis || vis, mouse: L.mouse,
+    cloud: new Set([...Array(n).keys()]), real: L.mouse === 'random' ? rnd(n) : null,
+    day: 0, sel: [], busy: false, log: [], par: par(n), cap: Math.max(4, 2 * par(n)), over: null, holes: [],
+  };
+  document.body.classList.remove('night');
+  $('#levels').classList.add('hidden'); $('#game').classList.remove('hidden');
+  $('#title').textContent = L.name;
+  $('#modeTag').textContent = L.group === 'tutorial' ? 'Tutorial' : MODES[S.vis].label;
+  buildBoard();
+  setMsg(S.k === 1 ? 'Tap the hole to open it.' : 'Tap two holes to open them.');
+  render();
+}
+
+function pos(i, r = 150) { const a = -Math.PI / 2 + 2 * Math.PI * i / S.n; return { x: 200 + r * Math.cos(a), y: 200 + r * Math.sin(a) }; }
+function ghostPos(i) { const p = pos(i); return { x: p.x, y: p.y - 6 }; }
+
+function buildBoard() {
+  const svg = $('#board'); svg.innerHTML = '';
+  const sun = el('text', { x: 200, y: 150, class: 'sun', id: 'sun' }); sun.textContent = '☀️'; svg.appendChild(sun);
+  const cat = el('text', { x: 200, y: 212, class: 'cat', id: 'cat' }); cat.textContent = '🐱'; svg.appendChild(cat);
+  const zz = el('text', { x: 240, y: 180, class: 'zz hidden', id: 'zz' }); zz.textContent = '💤'; svg.appendChild(zz);
+  for (let i = 0; i < S.n; i++) {
+    const p = pos(i), pl = pos(i, 184), gp = ghostPos(i);
+    const g = el('g', { class: 'hole' });
+    g.appendChild(el('ellipse', { cx: p.x, cy: p.y, rx: S.n > 15 ? 18 : 24, ry: S.n > 15 ? 12 : 15 }));
+    const num = el('text', { x: pl.x, y: pl.y, class: 'num' }); num.textContent = i + 1; g.appendChild(num);
+    const gh = el('text', { x: gp.x, y: gp.y, class: 'ghost hidden' }); gh.textContent = '🐭'; g.appendChild(gh);
+    const m = el('text', { x: gp.x, y: gp.y, class: 'mouse hidden' }); m.textContent = '🐭'; g.appendChild(m);
+    g.addEventListener('click', () => tap(i));
+    svg.appendChild(g); S.holes.push(g);
+  }
+  S.animLayer = el('g'); svg.appendChild(S.animLayer);
+}
+
+function setMsg(t) { $('#msg').textContent = t; }
+
+function render() {
+  S.holes.forEach((g, i) => {
+    g.classList.toggle('sel', S.sel.includes(i));
+    const gh = g.querySelector('.ghost');
+    gh.classList.toggle('hidden', !(S.vis === 'ghost' && S.cloud.has(i)));
+    gh.classList.remove('fade', 'flicker');
+  });
+  $('#day').textContent = S.day;
+  $('#par').textContent = S.par;
+  $('#countStat').classList.toggle('hidden', S.vis !== 'count');
+  $('#count').textContent = S.cloud.size + (S.cloud.size === 1 ? ' hole' : ' holes');
+  $('#log').innerHTML = S.log.map(o => `<span class="chip">${o.map(i => i + 1).join(' · ')}</span>`).join('');
+}
+
+function tap(i) {
+  if (!S || S.busy || S.over) return;
+  const j = S.sel.indexOf(i);
+  if (j >= 0) S.sel.splice(j, 1); else S.sel.push(i);
+  render();
+  if (S.sel.length === S.k) openHoles();
+}
+
+async function openHoles() {
+  S.busy = true; S.day++;
+  const opened = S.sel.slice(); S.sel = []; S.log.push(opened);
+  opened.forEach(i => S.holes[i].classList.add('open'));
+  render();
+  setMsg('Opening ' + opened.map(i => i + 1).join(' and ') + '…');
+  await wait(450);
+
+  let caught = false, at = null;
+  if (S.mouse === 'random') { if (opened.includes(S.real)) { caught = true; at = S.real; } }
+  else if ([...S.cloud].every(x => opened.includes(x))) { caught = true; at = pick([...S.cloud]); }
+
+  if (caught) { await animCatch(at); S.over = 'caught'; S.busy = false; showResult(); return; }
+
+  const hadGhost = opened.filter(x => S.cloud.has(x));
+  opened.forEach(x => S.cloud.delete(x));
+  await animNeverHere(hadGhost);
+  opened.forEach(i => S.holes[i].classList.remove('open'));
+  render();
+  if (S.day >= S.cap) { S.over = 'escaped'; S.busy = false; showResult(); return; }
+  await night();
+  S.busy = false; render();
+  setMsg('Day ' + (S.day + 1) + '. Open two holes.');
+}
+
+async function animNeverHere(hadGhost) {
+  let m;
+  if (S.vis === 'ghost') {
+    if (S.mouse === 'schro') m = hadGhost.length ? 'It was never here. Or was it?' : 'Nothing there. The ghosts could have told you that.';
+    else m = hadGhost.length ? 'Not here.' : 'Nothing there, as the ghosts said.';
+    hadGhost.forEach(x => S.holes[x].querySelector('.ghost').classList.add('fade'));
+  } else m = 'Empty.';
+  setMsg(m);
+  await wait(900);
+}
+
+function spread(set) { const out = new Set(); set.forEach(x => { out.add((x + 1) % S.n); out.add((x - 1 + S.n) % S.n); }); return out; }
+
+async function night() {
+  document.body.classList.add('night');
+  $('#zz').classList.remove('hidden'); $('#sun').textContent = '🌙';
+  setMsg('Night falls. The mouse moves.');
+  const old = [...S.cloud];
+  const next = spread(S.cloud);
+  if (S.mouse === 'random') S.real = (S.real + (Math.random() < .5 ? 1 : -1) + S.n) % S.n;
+  await wait(500);
+  if (S.vis === 'ghost') await animSpread(old); else await wait(700);
+  S.cloud = next; render();
+  await wait(350);
+  document.body.classList.remove('night');
+  $('#zz').classList.add('hidden'); $('#sun').textContent = '☀️';
+  await wait(400);
+}
+
+function animSpread(old) {
+  return new Promise(res => {
+    old.forEach(x => S.holes[x].querySelector('.ghost').classList.add('hidden'));
+    const items = [];
+    old.forEach(x => [(x + 1) % S.n, (x - 1 + S.n) % S.n].forEach(y => {
+      const t = el('text', { class: 'ghost' }); t.textContent = '🐭'; S.animLayer.appendChild(t);
+      items.push({ t, a: ghostPos(x), b: ghostPos(y) });
+    }));
+    const D = 850; let t0 = null;
+    const step = now => {
+      if (t0 === null) t0 = now;
+      const u = Math.min(1, (now - t0) / D);
+      const e = u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+      items.forEach(it => { it.t.setAttribute('x', it.a.x + (it.b.x - it.a.x) * e); it.t.setAttribute('y', it.a.y + (it.b.y - it.a.y) * e - Math.sin(u * Math.PI) * 14); });
+      if (u < 1) requestAnimationFrame(step); else { items.forEach(it => it.t.remove()); res(); }
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+async function animCatch(at) {
+  if (S.vis === 'ghost' && S.mouse === 'schro' && S.cloud.size > 1) {
+    setMsg('Cornered everywhere at once. The mouse has to pick a hole…');
+    S.cloud.forEach(x => S.holes[x].querySelector('.ghost').classList.add('flicker'));
+    await wait(1000);
+  }
+  S.cloud = new Set([at]);
+  S.holes.forEach(g => g.querySelector('.ghost').classList.add('hidden'));
+  S.holes[at].querySelector('.mouse').classList.remove('hidden');
+  $('#cat').textContent = '😸';
+  setMsg(S.mouse === 'schro' ? 'Measured. It is in hole ' + (at + 1) + '.' : 'Got it! It was in hole ' + (at + 1) + '.');
+  await wait(1400);
+}
+
+// ---------- input ----------
+$('#btnLevels').addEventListener('click', gotoLevels);
+$('#btnRestart').addEventListener('click', () => { if (S) { closeOverlay(); start(S.level, S.vis); } });
+let kbuf = '';
+document.addEventListener('keydown', e => {
+  if (!S || !$('#overlay').classList.contains('hidden')) return;
+  if (e.key === 'Escape') { S.sel = []; kbuf = ''; render(); return; }
+  if (e.key === 'r' || e.key === 'R') { start(S.level, S.vis); return; }
+  if (/^[0-9]$/.test(e.key)) {
+    if (S.n < 10) { const v = e.key === '0' ? 10 : +e.key; if (v <= S.n) tap(v - 1); return; }
+    kbuf += e.key; const v = +kbuf;
+    if (v >= 1 && v <= S.n && v * 10 > S.n) { tap(v - 1); kbuf = ''; }
+    else if (v < 1 || v > S.n || kbuf.length >= 2) kbuf = '';
+    if (kbuf && !S.busy) setMsg('Hole ' + kbuf + '… (Enter)');
+    return;
+  }
+  if (e.key === 'Enter' && kbuf) { const v = +kbuf; kbuf = ''; if (v >= 1 && v <= S.n) tap(v - 1); }
+});
+
+renderLevels();
+</script>
+</body>
+</html>
