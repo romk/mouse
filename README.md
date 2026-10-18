@@ -14,6 +14,7 @@ Play it: https://mouse-alpha.vercel.app
 The game is a playable version of the classic "13 Caves and a Thief" brain teaser, a puzzle widely
 reported as a Google interview question: a thief hides in one of thirteen caves arranged in a circle
 and moves to a neighbouring cave every night; two police officers can search two caves a day. How
-many days until they are sure to catch him? The idea came from an Instagram reel explaining that
-puzzle. Write-ups of the original: [AfterAcademy](https://afteracademy.com/puzzle/13-caves-and-a-thief),
+many days until they are sure to catch him? The idea came from the reel
+["Can You Solve This Google Puzzle?"](https://www.instagram.com/reel/Dem9An-N2OU/) by
+[@piratecodeofficial](https://www.instagram.com/piratecodeofficial/) on Instagram. Write-ups of the original: [AfterAcademy](https://afteracademy.com/puzzle/13-caves-and-a-thief),
 [CrazyForCode](http://www.crazyforcode.com/13-caves-thief-puzzle/).
