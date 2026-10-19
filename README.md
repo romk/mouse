@@ -36,7 +36,7 @@ with a `.env` file (ignored by git) containing:
   `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Without them the API answers 503 and the game still works.
 - `STATS_TOKEN`: any long secret; it unlocks `/stats.html`.
 - Web Analytics: enable it in the project's Analytics tab. The page only loads the script on
-  `mouse.jnkr.nl` and `*.vercel.app`.
+  `mouse.romke.com` and `*.vercel.app`.
 
 
 ## Credits
