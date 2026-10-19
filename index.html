@@ -423,14 +423,12 @@ function showResult() {
       ${next && S.over === 'caught' && !S.replay ? '<button class="btn" id="ovNext">Next</button>' : ''}</div>
     <div class="row">
       <button class="btn quiet" id="ovLevels">Levels</button>
-      ${S.history.length ? '<button class="btn quiet" id="ovReview">👻 Show the ghosts</button>' : ''}
       ${canShare ? '<button class="btn quiet" id="ovShare">📤 Share</button>' : ''}</div>`;
   overlay(html);
   $('#ovLevels').addEventListener('click', () => { closeOverlay(); gotoLevels(); });
   if ($('#ovRetry')) $('#ovRetry').addEventListener('click', () => { closeOverlay(); start(L, S.vis); });
   if ($('#ovSelf')) $('#ovSelf').addEventListener('click', () => { closeOverlay(); showIntro(L); });
   if ($('#ovNext')) $('#ovNext').addEventListener('click', () => { closeOverlay(); showIntro(next); });
-  if ($('#ovReview')) $('#ovReview').addEventListener('click', () => { closeOverlay(); enterReview(); });
   if ($('#ovShare')) $('#ovShare').addEventListener('click', shareResult);
 }
 
@@ -687,7 +685,7 @@ async function animCatch(at) {
   await wait(T(1400));
 }
 
-// ---------- post-mortem review ----------
+// ---------- post-mortem review (kept, but the button is not shown for now: it confused players) ----------
 function enterReview() {
   S.review = { i: 0 };
   $('#review').classList.remove('hidden');

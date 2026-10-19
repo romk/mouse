@@ -179,8 +179,8 @@ Agreed and built into `index.html` (single file, no build step, open it in any b
 - Share: a Wordle-style line (one 🌙 per night, 🐭 or 💨 at the end) plus a replay link
   `/?r=<level>.<mode letter>.<openings>`. Opening the link offers "watch the run" (ghosts on,
   nothing saved) or "play it yourself".
-- Post-mortem: after any run, "Show the ghosts" steps through the cloud per day. Hints stay out;
-  this is only after the run.
+- Post-mortem: a "Show the ghosts" day-by-day review exists in the code but is not shown: it
+  confused players in the first test. Maybe later, with a clearer presentation.
 - Feel: synthesised sounds (Web Audio, no files) with a mute toggle, vibration on phones that
   support it, the cat gets grumpier past par and panics near the limit, reduced-motion respected.
 - Installable: manifest + service worker (network first, cache fallback). No app store involved.
