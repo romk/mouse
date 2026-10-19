@@ -18,6 +18,7 @@ table{border-collapse:collapse;width:100%;font-size:.95rem;background:var(--card
 th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--card-border)}
 th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
 td:first-child,th:first-child{text-align:left}
+#runs td,#runs th{text-align:left}
 .kpi{display:flex;gap:12px;flex-wrap:wrap}
 .kpi div{background:var(--card);border:2px solid var(--card-border);border-radius:14px;padding:10px 14px;min-width:120px}
 .kpi b{display:block;font-size:1.5rem}
@@ -32,10 +33,11 @@ a{color:inherit}
 <body>
 <main>
 <h1>Schrödinger's Mouse · stats</h1>
-<p class="muted">Private page. Counters only, nothing per player. <a href="/">Back to the game</a></p>
+<p class="muted">Private page. Counters and completed runs with coarse location (country and city as Vercel sees it), never an IP. <a href="/">Back to the game</a> · <a href="https://vercel.com/romkes-projects/mouse/analytics" target="_blank" rel="noopener">Vercel analytics</a></p>
 <div id="login"><input id="tok" type="password" placeholder="Stats token" autocomplete="off"> <button id="go">Show</button> <span id="err" class="muted"></span></div>
 <div id="out" class="hidden">
   <h2>Totals</h2><div class="kpi" id="kpi"></div>
+  <h2>Recent runs</h2><div id="runs"></div>
   <h2>Per level</h2><div id="levels"></div>
   <h2>Days to catch (finished runs, per level)</h2><div id="days"></div>
   <h2>Last 30 days</h2><div id="daily"></div>
@@ -64,6 +66,16 @@ async function load(token) {
   const ev = d.events;
   $('#kpi').innerHTML = [['Likes', d.likes], ['Runs started', sum(ev.start)], ['Caught', sum(ev.finish)], ['Got away', sum(ev.fail)], ['Shares', sum(ev.share)], ['Replays watched', sum(ev.replay)], ['Feedback', d.feedback.length]]
     .map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+
+  // recent runs, newest first
+  const runs = (d.runs || []).slice().sort((a, b) => b.t - a.t);
+  const place = r => [r.city, r.region, r.country].filter(Boolean).join(', ') || '–';
+  const when = t => { const dt = new Date(t); return dt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
+  $('#runs').innerHTML = runs.length ? table(['When', 'Level', 'Mode', 'Result', 'Location'], runs.map(r => {
+    const p = par(nOf(r.level));
+    const result = r.n === 'finish' ? `caught in ${r.days}d${r.days <= p ? ' ★★★' : r.days <= p + 2 ? ' ★★' : ' ★'}` : 'got away';
+    return [when(r.t), NAMES[r.level] || r.level, r.mode, result, esc(place(r))];
+  })) : '<p class="muted">No completed runs yet.</p>';
 
   // per level and mode
   const rows = [];

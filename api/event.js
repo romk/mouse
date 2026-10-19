@@ -17,6 +17,12 @@ module.exports = async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const cmds = [['HINCRBY', 'ev:' + n, level + ':' + mode, 1], ['HINCRBY', 'ev:daily', today + ':' + n, 1]];
   if (n === 'finish' && days) cmds.push(['HINCRBY', 'ev:finish_days', level + ':' + mode + ':' + days, 1]);
+  if (n === 'finish' || n === 'fail') {
+    // One record per completed run. Location is the coarse geo that Vercel attaches to the request; no IP is kept.
+    const h = k => { const v = req.headers[k]; return v ? decodeURIComponent(String(v)).slice(0, 40) : ''; };
+    const run = { t: Date.now(), n, level, mode, days: n === 'finish' ? days : null, country: h('x-vercel-ip-country'), region: h('x-vercel-ip-country-region'), city: h('x-vercel-ip-city') };
+    cmds.push(['LPUSH', 'runs', JSON.stringify(run)], ['LTRIM', 'runs', 0, 1999]);
+  }
   try { await kv.pipeline(cmds); } catch (e) { /* counters are best effort */ }
   return res.status(204).end();
 };
