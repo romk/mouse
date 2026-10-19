@@ -170,3 +170,21 @@ Agreed and built into `index.html` (single file, no build step, open it in any b
 - Open on second tap (no Open button). Keyboard: digits, two digits for n ≥ 10, Enter to commit a
   single digit, Escape to clear.
 - English, cute cartoon (emoji cat and mice, day/night sky), name "Schrödinger's Mouse".
+
+## 9. Second round (19 Oct 2026)
+
+- Levels: Learn = 3 (real mouse), 3 (Schrödinger), 4 (Schrödinger), plus a card to the maths page.
+  Play = 5, 7, 9, 11, 13 (boss), 15, 17, 19. Five is the first level that counts. 21 dropped so
+  everything fits a 4×3 grid.
+- Share: a Wordle-style line (one 🌙 per night, 🐭 or 💨 at the end) plus a replay link
+  `/?r=<level>.<mode letter>.<openings>`. Opening the link offers "watch the run" (ghosts on,
+  nothing saved) or "play it yourself".
+- Post-mortem: after any run, "Show the ghosts" steps through the cloud per day. Hints stay out;
+  this is only after the run.
+- Feel: synthesised sounds (Web Audio, no files) with a mute toggle, vibration on phones that
+  support it, the cat gets grumpier past par and panics near the limit, reduced-motion respected.
+- Installable: manifest + service worker (network first, cache fallback). No app store involved.
+- Backend (optional, degrades gracefully): likes (one per client per day), anonymous feedback
+  (rate limited, last 1000 kept), gameplay counters per level/mode/day with a private stats page.
+  Vercel Web Analytics for traffic. No per-player data anywhere.
+- Preview image and icons for shared links and home screens.

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The maths behind Schrödinger's Mouse</title>
+<meta name="description" content="Why thirteen caves take twelve days: the cloud of possible positions, the parity rhythm, the must-move rule, and a table of minimum days for every board size.">
+<link rel="canonical" href="https://mouse.jnkr.nl/maths.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The maths behind Schrödinger's Mouse">
+<meta property="og:description" content="Why thirteen caves take twelve days, and why the mouse must move.">
+<meta property="og:url" content="https://mouse.jnkr.nl/maths.html">
+<meta property="og:image" content="https://mouse.jnkr.nl/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#f6e7c8">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6e7c8;--bg2:#f0d9a8;--fg:#3a2a1a;--muted:#8a7256;--card:#fff7e6;--card-border:#e6cfa3;--accent:#ff8c42;--chip:#ffe9c2}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Nunito",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:radial-gradient(circle at 50% 10%,var(--bg) 0%,var(--bg2) 100%);color:var(--fg);padding:16px;display:flex;justify-content:center;min-height:100vh}
+main{width:100%;max-width:640px}
+h1{font-size:2rem;font-weight:900;letter-spacing:-.02em;margin:.4em 0 .2em;line-height:1.1}
+h2{font-size:1.25rem;font-weight:900;margin:1.6em 0 .4em}
+p,li{line-height:1.55;font-size:1.05rem}
+a{color:inherit;font-weight:700}
+.back{display:inline-block;text-decoration:none;background:var(--card);border:2px solid var(--card-border);border-radius:999px;padding:.4em .9em;font-weight:900;margin-bottom:8px}
+.box{background:var(--card);border:2px solid var(--card-border);border-radius:18px;padding:14px 18px;margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:.95rem;margin:8px 0}
+th,td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--card-border)}
+th{color:var(--muted);font-weight:800;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em}
+td:first-child,th:first-child{text-align:left}
+.seq{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{background:var(--chip);border-radius:999px;padding:3px 10px;font-weight:800;font-size:.95rem}
+.ghost{opacity:.55;filter:grayscale(1)}
+.cloud{font-size:1.5rem;letter-spacing:.1em;text-align:center;margin:.2em 0}
+.muted{color:var(--muted)}
+.play{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;border-radius:999px;padding:.6em 1.3em;font-weight:900;box-shadow:0 4px 0 rgba(0,0,0,.18);margin-top:12px}
+.wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="/">‹ Back to the game</a>
+<h1>The maths behind the mouse</h1>
+<p class="muted">Why thirteen caves take exactly twelve days, and why the mouse must move.</p>
+
+<h2>The puzzle</h2>
+<p>Thirteen caves lie in a circle. A thief hides in one of them. Every night he moves to a neighbouring cave. Every day two police officers can each search one cave. How many days do they need to be <em>certain</em> they catch him?</p>
+<p>It is a well-known brain teaser, usually told as a Google interview question. The game swaps the thief for a mouse and the officers for a cat, and lets you play every board size from three holes up.</p>
+
+<h2>Don't chase the mouse. Chase the cloud.</h2>
+<p>You never know where the mouse is. What you do know is the set of holes it <em>could</em> be in, given everything you have seen. Call that set the cloud. In Ghosts mode the game draws it for you: one ghost per possible hole.</p>
+<div class="box">
+<p><b>Day.</b> You open two holes. Those two leave the cloud. If the cloud is now empty, the mouse had nowhere else to be: caught.</p>
+<p><b>Night.</b> Every hole in the cloud spreads to both of its neighbours. The cloud grows back.</p>
+</div>
+<p>That is the whole game. You win when you shrink the cloud faster than the night regrows it.</p>
+
+<h2>Why the mouse must move</h2>
+<p>If the mouse were allowed to stay put, a hole in the cloud would stay in the cloud, and each night the cloud would grow by its two edges. Two openings a day can never keep up: on a circle the cloud regrows at least as fast as you cut it, and the puzzle is impossible. Forcing the mouse to move is what makes it solvable, because it creates a rhythm.</p>
+<p>Number the holes 1 to 13. A mouse in an odd hole tonight is in an even hole tomorrow, and in an odd hole again the day after. If you only ever open holes of the right parity, the mouse keeps dodging you by parity, so the cloud never grows in the direction you are sweeping. This is why on a ring with an <em>even</em> number of holes the cloud splits cleanly in two halves that never mix.</p>
+<p>On an odd ring there is a seam: hole 13 is next to hole 1, both odd. A mouse can slip through that seam and change parity. The optimal strategy works the seam: sweep one way, then turn around and sweep back, and the last stragglers have nowhere left to hide.</p>
+
+<h2>Minimum days for every board</h2>
+<p>These numbers come from a brute-force search over all possible clouds, so they are exact. The game's par is this number.</p>
+<div class="wrap">
+<table>
+<tr><th>Holes</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>13</th><th>15</th><th>17</th><th>19</th><th>21</th></tr>
+<tr><td>Circle, must move</td><td>2</td><td>2</td><td>4</td><td>4</td><td>6</td><td>6</td><td>8</td><td>8</td><td>10</td><td>10</td><td>12</td><td>14</td><td>16</td><td>18</td><td>20</td></tr>
+<tr><td>Line, must move</td><td>2</td><td>2</td><td>2</td><td>3</td><td>4</td><td>4</td><td>6</td><td>6</td><td>6</td><td>7</td><td>8</td><td>10</td><td class="muted">–</td><td class="muted">–</td><td class="muted">–</td></tr>
+<tr><td>Line, may stay</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>10</td><td>11</td><td>12</td><td>14</td><td class="muted">–</td><td class="muted">–</td><td class="muted">–</td></tr>
+<tr><td>Circle, may stay</td><td colspan="15">impossible with two openings a day</td></tr>
+</table>
+</div>
+<p>On the circle the pattern is simple: with <i>n</i> holes the minimum is <b>2 · ⌊(n − 1) / 2⌋</b>, which for an odd ring is <i>n</i> − 1. Thirteen holes, twelve days. Even rings cost the same as the odd ring one smaller, which is why the game only uses odd sizes beyond the tutorial.</p>
+
+<h2>One perfect twelve-day run</h2>
+<p>There are many optimal strategies. This one is easy to remember: the two cats stand one hole apart and leap three holes a day, sweep around, then turn and sweep back.</p>
+<div class="seq">
+<span class="chip">1 · 3</span><span class="chip">4 · 6</span><span class="chip">7 · 9</span><span class="chip">10 · 12</span><span class="chip">1 · 3</span><span class="chip">11 · 13</span><span class="chip">8 · 10</span><span class="chip">5 · 7</span><span class="chip">2 · 4</span><span class="chip">8 · 10</span><span class="chip">11 · 13</span><span class="chip">1 · 3</span>
+</div>
+<p>Watch it with the ghosts on: <a href="/?r=l13.g.1-3,4-6,7-9,10-12,1-3,11-13,8-10,5-7,2-4,8-10,11-13,1-3">replay the run</a>. Notice how the cloud never grows behind the cats on the way out, and how the turn at hole 13 closes the seam.</p>
+
+<h2>Why a Schrödinger mouse is fair</h2>
+<p>The puzzle asks for a guarantee: the number of days that works <em>whatever</em> the thief does. A guarantee is a statement about the worst case. The Schrödinger mouse is that worst case made visible: it is in every hole of the cloud at once, and it only commits to a position when you have opened all of them on the same day.</p>
+<p>If you catch the Schrödinger mouse in twelve days, the very same sequence of openings catches any real mouse in at most twelve days. A real mouse can only be caught sooner, by luck. The game's first tutorial level has a real mouse for exactly that reason: so you can feel the difference between being lucky and being sure.</p>
+
+<h2>Credits</h2>
+<p>The puzzle is the classic <a href="https://afteracademy.com/puzzle/13-caves-and-a-thief" target="_blank" rel="noopener">"13 Caves and a Thief"</a>. The idea for the game came from the reel <a href="https://www.instagram.com/reel/Dem9An-N2OU/" target="_blank" rel="noopener">"Can You Solve This Google Puzzle?"</a> by <a href="https://www.instagram.com/piratecodeofficial/" target="_blank" rel="noopener">@piratecodeofficial</a>. The par table was computed with a small brute-force solver; the source is on <a href="https://github.com/romk/mouse" target="_blank" rel="noopener">GitHub</a>.</p>
+<a class="play" href="/">Play Schrödinger's Mouse</a>
+</main>
+</body>
+</html>
