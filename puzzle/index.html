@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Puzzles</title>
+<meta name="description" content="Small puzzle games with a bit of maths behind them.">
+<link rel="canonical" href="https://puzzle.romke.com/">
+<link rel="icon" href="/mouse/favicon.png" sizes="64x64" type="image/png">
+<meta name="theme-color" content="#f6e7c8">
+<style>
+:root{ --bg:#f6e7c8; --bg2:#f0d9a8; --fg:#3a2a1a; --muted:#8a7256; --card:#fff7e6; --card-border:#e6cfa3; --accent:#ff8c42; }
+@media (prefers-color-scheme: dark){ :root{ --bg:#1f2740; --bg2:#141a2c; --fg:#f0ecdf; --muted:#aab0c4; --card:#2a3350; --card-border:#3b476a; } }
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:radial-gradient(circle at 50% 30%,var(--bg) 0%,var(--bg2) 100%);color:var(--fg)}
+.wrap{max-width:560px;margin:0 auto;padding:24px 16px 40px}
+h1{font-size:2rem;margin:.2em 0 0;letter-spacing:-.02em}
+.tag{color:var(--muted);margin:0 0 1.2em}
+a.game{display:flex;gap:14px;align-items:center;text-decoration:none;color:var(--fg);background:var(--card);border:2px solid var(--card-border);border-radius:18px;padding:14px;margin-bottom:12px;box-shadow:0 6px 0 rgba(90,64,48,.15);transition:transform .1s}
+a.game:active{transform:translateY(2px)}
+.pic{width:64px;height:64px;border-radius:14px;flex:none;overflow:hidden;background:var(--bg)}
+.pic img,.pic svg{width:100%;height:100%;display:block}
+.name{font-weight:900;font-size:1.15rem}
+.desc{color:var(--muted);font-size:.9rem;margin-top:2px;line-height:1.35}
+.foot{color:var(--muted);font-size:.85rem;margin-top:24px}
+.foot a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Puzzles</h1>
+  <p class="tag">Small games with a bit of maths behind them.</p>
+
+  <a class="game" href="/mouse/">
+    <div class="pic"><img src="/mouse/icon-192.png" alt=""></div>
+    <div><div class="name">Schrödinger's Mouse</div>
+    <div class="desc">A mouse hides in a ring of holes and moves every night. Open two holes a day. How quickly can you be sure to catch it?</div></div>
+  </a>
+
+  <a class="game" href="/square/">
+    <div class="pic"><svg viewBox="0 0 64 64" fill="none" stroke-linejoin="round"><path d="M14 20c6-10 22-12 32-6s8 22 2 30-22 10-30 2S8 30 14 20z" stroke="#3a2a1a" stroke-width="2.5"/><path d="M20 24l24-6 6 24-24 6z" stroke="#ff8c42" stroke-width="2.5"/></svg></div>
+    <div><div class="name">Square Peg</div>
+    <div class="desc">Every loop hides a square. A new loop every day: find its squares. Or draw your own loop and watch the square appear.</div></div>
+  </a>
+
+  <p class="foot">Made by Romke Jonker. Source on <a href="https://github.com/romk/mouse" target="_blank" rel="noopener">GitHub</a>.</p>
+</div>
+</body>
+</html>

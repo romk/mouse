@@ -1,23 +1,32 @@
-# Schrödinger's Mouse
+# Puzzles
 
-A mouse hides in a ring of holes and moves to a neighbouring hole every night.
-Each day you open two holes. How quickly can you be *sure* to catch it?
+Small puzzle games with a bit of maths behind them, deployed together as one Vercel project.
 
-Play it: https://mouse-alpha.vercel.app
+- `puzzle/index.html`: the overview page, served at the root (`puzzle.romke.com`).
+- `mouse/`: **Schrödinger's Mouse**. A mouse hides in a ring of holes and moves to a neighbouring hole
+  every night. Each day you open two holes. How quickly can you be *sure* to catch it?
+  `index.html` is the whole game, `maths.html` the explainer, `stats.html` the private stats page
+  (needs the `STATS_TOKEN`), `DESIGN.md` the design notes, `solve.py` the brute-force par solver,
+  plus the manifest, service worker and icons that make it installable and offline.
+  Also served at `mouse.romke.com` (a host rewrite in `vercel.json` maps that domain onto `/mouse/`).
+- `square/`: **Square Peg**. Every loop hides a square (Toeplitz' inscribed square problem). A loop a
+  day, find its squares; or draw your own loop in the Lab. `index.html` is the page, `peg.js` the
+  solver and loop generator shared with `gen.js`, which stocks `puzzles.json` with a loop per day
+  (`node square/gen.js 400` tops the stock up to 400 days; existing days are never changed).
+  `DESIGN.md` has the theorem and the design, `solve.py` a Python prototype of the solver.
+- `api/`: four small Vercel functions shared by the games: likes, feedback, gameplay counters,
+  stats. They take a `game` field (`mouse` by default, or `square`); the mouse keeps its original
+  Redis keys, other games get a `:game` suffix. `lib/kv.js` talks to the Redis store.
+- `vercel.json`: the rewrites. `mouse.romke.com/*` → `/mouse/*` (except `/api/`), and `/` → `/puzzle/`.
 
-- `index.html`: the whole game, one file, no build step.
-- `maths.html`: the explainer (the cloud, parity, the par table, an optimal 13-hole run).
-- `stats.html`: private stats page, needs the `STATS_TOKEN`.
-- `api/`: four small Vercel functions: likes, feedback, gameplay counters, stats. `lib/kv.js` talks to the Redis store.
-- `manifest.webmanifest`, `sw.js`, icons: installable as an app, works offline.
-- `DESIGN.md`: the puzzle, the rules, and the design decisions.
-- `solve.py`: brute-force solver used to verify par for each board size.
+All pages reference their own files relatively, so each game works at its folder and, for the
+mouse, at the root of its own domain.
 
 ## Running locally
 
-Game only (no likes, feedback or counters):
+Games only (no likes, feedback or counters, no host rewrites):
 
-    python3 -m http.server 8000
+    python3 -m http.server 8000      # then open /mouse/ or /square/
 
 Everything, including the API functions, against an in-memory fake store:
 
@@ -32,14 +41,20 @@ with a `.env` file (ignored by git) containing:
 
 ## Production configuration (Vercel)
 
+- Domains: `puzzle.romke.com` (the overview and every game under its folder) and `mouse.romke.com`
+  (the mouse at the root, via the host rewrite). Adding a game needs no DNS: a new folder, a card on
+  the overview page, and `api/event.js` and `lib/kv.js` told about its name.
+
 - Storage: Upstash for Redis from the Vercel Marketplace, connected to the project. It sets
   `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Without them the API answers 503 and the game still works.
 - `STATS_TOKEN`: any long secret; it unlocks `/stats.html`.
 - Web Analytics: enable it in the project's Analytics tab. The page only loads the script on
-  `mouse.romke.com` and `*.vercel.app`.
+  `*.romke.com` and `*.vercel.app`.
 
 
 ## Credits
+
+### Schrödinger's Mouse
 
 The game is a playable version of the classic "13 Caves and a Thief" brain teaser, a puzzle widely
 reported as a Google interview question: a thief hides in one of thirteen caves arranged in a circle
@@ -48,3 +63,8 @@ many days until they are sure to catch him? The idea came from the reel
 ["Can You Solve This Google Puzzle?"](https://www.instagram.com/reel/Dem9An-N2OU/) by
 [@piratecodeofficial](https://www.instagram.com/piratecodeofficial/) on Instagram. Write-ups of the original: [AfterAcademy](https://afteracademy.com/puzzle/13-caves-and-a-thief),
 [CrazyForCode](http://www.crazyforcode.com/13-caves-thief-puzzle/).
+
+### Square Peg
+
+Toeplitz' conjecture (1911): every simple closed curve contains four points that form a square.
+Open in general, proven for every curve you can draw. See `square/DESIGN.md` for references.

@@ -21,9 +21,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Mouse">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" href="/favicon.png" sizes="64x64" type="image/png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
@@ -156,7 +156,7 @@ svg#board{width:100%;height:auto;display:block;touch-action:manipulation;user-se
     <button class="btn quiet icon" id="btnSoundL" title="Sound on or off">🔊</button>
   </div>
   <p class="foot">Tap two holes to open them. On a keyboard, type the hole number. Press R to restart a level.</p>
-  <p class="foot">Inspired by the classic <a href="https://afteracademy.com/puzzle/13-caves-and-a-thief" target="_blank" rel="noopener">"13 Caves and a Thief"</a> brain teaser, a puzzle known from Google job interviews: a thief hides in one of thirteen caves in a circle and moves to a neighbouring cave every night, two police officers search two caves a day. The mouse here is that thief, in every cave at once. Thanks to <a href="https://www.instagram.com/piratecodeofficial/" target="_blank" rel="noopener">@piratecodeofficial</a>, whose <a href="https://www.instagram.com/reel/Dem9An-N2OU/" target="_blank" rel="noopener">reel</a> about the puzzle started this. <a href="/maths.html">The maths behind it.</a></p>
+  <p class="foot">Inspired by the classic <a href="https://afteracademy.com/puzzle/13-caves-and-a-thief" target="_blank" rel="noopener">"13 Caves and a Thief"</a> brain teaser, a puzzle known from Google job interviews: a thief hides in one of thirteen caves in a circle and moves to a neighbouring cave every night, two police officers search two caves a day. The mouse here is that thief, in every cave at once. Thanks to <a href="https://www.instagram.com/piratecodeofficial/" target="_blank" rel="noopener">@piratecodeofficial</a>, whose <a href="https://www.instagram.com/reel/Dem9An-N2OU/" target="_blank" rel="noopener">reel</a> about the puzzle started this. <a href="maths.html">The maths behind it.</a></p>
 </section>
 
 <section id="game" class="screen hidden">
@@ -310,7 +310,7 @@ function renderLevels() {
     });
     if (g === 'learn') {
       const d = document.createElement('a');
-      d.className = 'lvl link'; d.href = '/maths.html';
+      d.className = 'lvl link'; d.href = 'maths.html';
       d.style.textDecoration = 'none';
       d.innerHTML = `<div class="big">∑</div><div class="name">The maths</div><div class="sub">par = 2·⌊(n−1)/2⌋</div><div class="stars"></div>`;
       grid.appendChild(d);
@@ -750,7 +750,7 @@ renderLevels();
 loadLikes();
 const rep = parseReplay();
 if (rep) showIntro(rep.L, { mode: rep.mode, ops: rep.ops });
-if ('serviceWorker' in navigator && ONLINE) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator && ONLINE) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
 </html>

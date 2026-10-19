@@ -33,7 +33,7 @@ a{color:inherit}
 <body>
 <main>
 <h1>Schrödinger's Mouse · stats</h1>
-<p class="muted">Private page. Counters and completed runs with coarse location (country and city as Vercel sees it), never an IP. <a href="/">Back to the game</a> · <a href="https://vercel.com/romkes-projects/mouse/analytics" target="_blank" rel="noopener">Vercel analytics</a></p>
+<p class="muted">Private page. Counters and completed runs with coarse location (country and city as Vercel sees it), never an IP. <a href="./">Back to the game</a> · <a href="https://vercel.com/romkes-projects/mouse/analytics" target="_blank" rel="noopener">Vercel analytics</a></p>
 <div id="login"><input id="tok" type="password" placeholder="Stats token" autocomplete="off"> <button id="go">Show</button> <span id="err" class="muted"></span></div>
 <div id="out" class="hidden">
   <h2>Totals</h2><div class="kpi" id="kpi"></div>
@@ -42,6 +42,8 @@ a{color:inherit}
   <h2>Days to catch (finished runs, per level)</h2><div id="days"></div>
   <h2>Last 30 days</h2><div id="daily"></div>
   <h2>Feedback</h2><div id="feedback"></div>
+  <h2>Square Peg</h2><div class="kpi" id="sqkpi"></div><div id="sqdaily"></div>
+  <h3>Square Peg feedback</h3><div id="sqfeedback"></div>
 </div>
 <script>
 'use strict';
@@ -106,6 +108,13 @@ async function load(token) {
   $('#daily').innerHTML = dates.length ? table(['Date', 'Started', 'Caught', 'Got away', 'Shares'], dates.map(dt => [dt, days[dt].start || 0, days[dt].finish || 0, days[dt].fail || 0, days[dt].share || 0])) : '<p class="muted">Nothing yet.</p>';
 
   $('#feedback').innerHTML = d.feedback.length ? d.feedback.map(f => `<div class="fb"><div class="t">${new Date(f.t).toLocaleString()}${f.level ? ' · ' + (NAMES[f.level] || f.level) : ''}</div>${esc(f.text)}</div>`).join('') : '<p class="muted">No feedback yet.</p>';
+  // Square Peg
+  const q = d.square || { likes: 0, events: { start: {}, finish: {}, share: {}, daily: {} }, feedback: [], runs: [] }, qe = q.events;
+  $('#sqkpi').innerHTML = [['Likes', q.likes], ['Days started', sum(qe.start)], ['Days solved', sum(qe.finish)], ['Shares', sum(qe.share)], ['Feedback', q.feedback.length]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  const qd = {}; for (const k in qe.daily) { const [date, n] = k.split(':'); (qd[date] = qd[date] || {})[n] = qe.daily[k]; }
+  const qdates = Object.keys(qd).sort().reverse().slice(0, 30);
+  $('#sqdaily').innerHTML = qdates.length ? table(['Date', 'Started', 'Solved', 'Shares'], qdates.map(dt => [dt, qd[dt].start || 0, qd[dt].finish || 0, qd[dt].share || 0])) : '<p class="muted">Nothing yet.</p>';
+  $('#sqfeedback').innerHTML = q.feedback.length ? q.feedback.map(f => `<div class="fb"><div class="t">${new Date(f.t).toLocaleString()}${f.level ? ' · ' + esc(f.level) : ''}</div>${esc(f.text)}</div>`).join('') : '<p class="muted">No feedback yet.</p>';
 }
 $('#go').addEventListener('click', () => load($('#tok').value.trim()));
 $('#tok').addEventListener('keydown', e => { if (e.key === 'Enter') load($('#tok').value.trim()); });
