@@ -141,7 +141,7 @@ a{color:var(--accent)}
 <div class="toast" id="toast"></div>
 <div class="err" id="err" hidden></div>
 
-<script src="peg.js"></script>
+<script src="peg.js" onerror="window.PEG_ERR = true"></script>
 <script>
 'use strict';
 // ---------------- utilities ----------------
@@ -154,6 +154,19 @@ function showError(where, err){ const e = err || {}; const stack = e.stack ? ' '
   b.querySelector('button').onclick = () => { b.hidden = true; }; b.hidden = false; }
 window.addEventListener('error', e => showError('Page error', e.error || { message: e.message + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ')' }));
 window.addEventListener('unhandledrejection', e => showError('Background error', e.reason));
+// peg.js holds the solver. One iPhone reported "Can't find variable: rdp", so if its functions are missing the
+// script is fetched again, injected inline (a syntax error then surfaces through the error box with a line
+// number), and the outcome is reported either way.
+const pegReady = (async () => {
+  if (typeof findSquares === 'function') return '';
+  let info = window.PEG_ERR ? 'the script tag reported a load error' : 'the script tag loaded but defined nothing';
+  try { const r = await fetch('peg.js?retry=' + Date.now(), { cache: 'reload' }); const text = await r.text();
+    info += `; refetch: HTTP ${r.status}, ${r.headers.get('content-type')}, ${text.length} chars, starts "${text.slice(0, 24)}"`;
+    if (r.ok){ const el = document.createElement('script'); el.textContent = text; document.head.appendChild(el); }
+  } catch (e) { info += '; refetch failed: ' + (e.message || e); }
+  if (typeof findSquares === 'function'){ showError('Note', { message: 'the solver script peg.js loaded only on a second try (' + info + ')' }); return ''; }
+  showError('The solver script peg.js did not load', { message: info }); return info;
+})();
 const EPOCH = Date.UTC(2026, 9, 10);            // day 1 of the puzzle stock (puzzles.json)
 const HISTORY = 10;                              // playable days: today and the 9 before
 const firstDay = () => Math.max(1, localDayNumber() - HISTORY + 1);
@@ -412,8 +425,10 @@ function applyPrefs(){ const q = new URLSearchParams(location.search);
 window.addEventListener('resize', () => { D.view.resize(); render(); L.view.resize(); });
 $('#btnSound').addEventListener('click', () => { setSound(store.sound === false); if (store.sound !== false) Snd.tap(); });
 applyPrefs(); setSound(store.sound !== false); D.view.resize();
-fetch('puzzles.json').then(r => r.ok ? r.json() : null).catch(() => null).then(j => { if (j && j.epoch === isoDay(1) && Array.isArray(j.days)) STOCK = j; else console.warn('no puzzle stock, generating on the fly');
-  $('#dstatus').textContent = 'Loading the loop of the day…';
+$('#dstatus').textContent = 'Loading the loop of the day…';
+Promise.all([fetch('puzzles.json').then(r => r.ok ? r.json() : null).catch(() => null), pegReady]).then(([j, pegErr]) => {
+  if (pegErr){ $('#dstatus').textContent = 'The solver did not load, so there is no loop today. See the message below.'; return; }
+  if (j && j.epoch === isoDay(1) && Array.isArray(j.days)) STOCK = j; else console.warn('no puzzle stock, generating on the fly');
   setTimeout(() => loadDay(dayOfIso(new URLSearchParams(location.search).get('d')) || localDayNumber()), 30); });
 </script>
 </body>
