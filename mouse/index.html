@@ -172,7 +172,7 @@ svg#board{width:100%;height:auto;display:block;touch-action:manipulation;user-se
   <div class="hud">
     <div class="stat"><span class="lbl">Day</span><b id="day">0</b></div>
     <div class="stat"><span class="lbl">Par</span><b id="par">–</b></div>
-    <div class="stat" id="countStat"><span class="lbl">Could be in</span><b id="count">–</b></div>
+    <div class="stat" id="countStat"><span class="lbl" id="countLbl">Is in all</span><b id="count">–</b></div>
     <div class="stat"><span class="lbl">Mode</span><b id="modeTag" style="font-size:1rem;line-height:1.75rem">–</b></div>
   </div>
   <svg id="board" viewBox="0 0 400 400" aria-label="Ring of holes"></svg>
@@ -204,8 +204,8 @@ const SITE = 'https://mouse.romke.com/';
 const par = n => n <= 2 ? 1 : 2 * Math.floor((n - 1) / 2);
 
 const MODES = {
-  ghost: { label: 'Ghosts', key: 'g', help: 'Every hole the mouse could be in shows a ghost. Practice: no stars are saved.' },
-  count: { label: 'Count',  key: 'c', help: 'You only see in how many holes the mouse could be. Stars count.' },
+  ghost: { label: 'Ghosts', key: 'g', help: 'A ghost in every hole the mouse is in at once. Practice: no stars are saved.' },
+  count: { label: 'Count',  key: 'c', help: 'You only see in how many holes the mouse is at once. Stars count.' },
   blind: { label: 'Blind',  key: 'b', help: 'You see nothing. Keep the ghosts in your head. Stars count.' },
 };
 const MODE_BY_KEY = Object.fromEntries(Object.entries(MODES).map(([k, v]) => [v.key, k]));
@@ -557,6 +557,7 @@ function render() {
   $('#par').textContent = S.par;
   $('#countStat').classList.toggle('hidden', S.vis !== 'count');
   $('#count').textContent = S.cloud.size + (S.cloud.size === 1 ? ' hole' : ' holes');
+  $('#countLbl').textContent = S.mouse === 'schro' ? (S.cloud.size === 1 ? 'Is in' : 'Is in all') : 'Could be in';
   $('#log').innerHTML = S.log.map(o => `<span class="chip">${o.map(i => i + 1).join(' · ')}</span>`).join('');
 }
 
@@ -707,7 +708,7 @@ function renderReview() {
   $('#rvLabel').textContent = `Day ${i + 1} of ${S.history.length}`;
   $('#rvPrev').disabled = i === 0; $('#rvNext').disabled = last;
   const n = h.cloud.length, o = h.opened.map(x => x + 1).join(' and ');
-  let m = `Day ${i + 1}: the mouse could be in ${n} ${n === 1 ? 'hole' : 'holes'}. You opened ${o}.`;
+  let m = S.mouse === 'schro' ? `Day ${i + 1}: the mouse was in ${n === 1 ? 'one hole' : 'all ' + n + ' holes at once'}. You opened ${o}.` : `Day ${i + 1}: the mouse could be in ${n} ${n === 1 ? 'hole' : 'holes'}. You opened ${o}.`;
   if (last) m += S.over === 'caught' ? ' Caught!' : ' Then it got away.';
   else if (h.opened.every(x => !h.cloud.includes(x))) m += ' Neither had a ghost.';
   else if (h.opened.some(x => !h.cloud.includes(x))) m += ' One of them had no ghost.';
