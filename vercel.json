@@ -1,7 +1,39 @@
 {
+  "redirects": [
+    {
+      "source": "/square",
+      "destination": "/square/",
+      "permanent": true
+    },
+    {
+      "source": "/mouse",
+      "destination": "/mouse/",
+      "permanent": true
+    },
+    {
+      "source": "/puzzle",
+      "destination": "/",
+      "permanent": true
+    }
+  ],
   "rewrites": [
-    { "source": "/:path((?!api/|_vercel/).*)", "has": [{ "type": "host", "value": "mouse.romke.com" }], "destination": "/mouse/:path" },
-    { "source": "/", "destination": "/puzzle/" },
-    { "source": "/stats", "destination": "/puzzle/stats.html" }
+    {
+      "source": "/:path((?!api/|_vercel/).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "mouse.romke.com"
+        }
+      ],
+      "destination": "/mouse/:path"
+    },
+    {
+      "source": "/",
+      "destination": "/puzzle/"
+    },
+    {
+      "source": "/stats",
+      "destination": "/puzzle/stats.html"
+    }
   ]
 }
