@@ -102,6 +102,7 @@ async function load(token) {
   if (!r.ok) { $('#err').textContent = 'Error ' + r.status; return; }
   const { games } = await r.json();
   try { sessionStorage.setItem('puzzle-stats-token', token); } catch (e) {}
+  try { localStorage.setItem('puzzle-stats', '1'); } catch (e) {}   // reveals the stats link on the overview page
   $('#login').classList.add('hidden'); $('#out').classList.remove('hidden');
   const ids = Object.keys(games), tot = k => ids.reduce((a, g) => a + (k === 'likes' ? games[g].likes : k === 'feedback' ? games[g].feedback.length : sum(games[g].events[k])), 0);
   $('#all').innerHTML = kpis([['Likes', tot('likes')], ['Plays started', tot('start')], ['Finished', tot('finish')], ['Shares', tot('share')], ['Feedback', tot('feedback')]]);

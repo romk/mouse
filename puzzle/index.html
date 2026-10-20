@@ -44,7 +44,8 @@ a.game:active{transform:translateY(2px)}
     <div class="desc">Every loop hides a square. A new loop every day: find its squares. Or draw your own loop and watch the square appear.</div></div>
   </a>
 
-  <p class="foot">Made by Romke Jonker. Source on <a href="https://github.com/romk/mouse" target="_blank" rel="noopener">GitHub</a>.</p>
+  <p class="foot">Made by Romke Jonker. Source on <a href="https://github.com/romk/mouse" target="_blank" rel="noopener">GitHub</a>.<span id="statslink" hidden> · <a href="stats">Stats</a></span></p>
+<script>try { if (localStorage.getItem('puzzle-stats')) document.getElementById('statslink').hidden = false; } catch (e) {}</script>
 </div>
 </body>
 </html>
