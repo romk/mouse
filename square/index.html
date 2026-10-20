@@ -343,27 +343,46 @@ $('#fbSend').addEventListener('click', async () => {
 loadLikes();
 
 // ---------------- lab ----------------
-const L = { view: makeView($('#lcanvas')), stroke: null, drawing: false };
+// Drawing is finished on pointerup, but iOS Safari has a history of losing pointerup after setPointerCapture
+// (WebKit 220196, 220539), so the window, lostpointercapture and plain touchend also end the stroke, and the
+// hint says so when one of those fallbacks had to step in. A solver error is shown instead of a silent stall.
+const L = { view: makeView($('#lcanvas')), stroke: null, drawing: false, pid: null };
 (() => { const v = L.view, c = v.canvas;
   v.pts = null;
-  c.addEventListener('pointerdown', e => { L.drawing = true; L.stroke = [v.pointer(e)]; v.pts = null; v.scale = 1; v.ox = 0; v.oy = 0; c.setPointerCapture(e.pointerId); $('#lstatus').textContent = 'Close the loop…'; $('#lhint').textContent = ''; });
-  c.addEventListener('pointermove', e => { if (!L.drawing) return; L.stroke.push(v.pointer(e)); v.clear();
+  c.addEventListener('pointerdown', e => { if (L.drawing) return;          // a second finger: ignore it
+    L.drawing = true; L.pid = e.pointerId; L.stroke = [v.pointer(e)]; v.pts = null; v.squares = []; v.scale = 1; v.ox = 0; v.oy = 0; v.clear();
+    try { c.setPointerCapture(e.pointerId); } catch (err) {}
+    $('#lstatus').textContent = 'Close the loop…'; $('#lhint').textContent = ''; });
+  c.addEventListener('pointermove', e => { if (!L.drawing || e.pointerId !== L.pid) return; L.stroke.push(v.pointer(e)); v.clear();
     v.ctx.beginPath(); L.stroke.forEach((p, i) => i ? v.ctx.lineTo(p[0], p[1]) : v.ctx.moveTo(p[0], p[1]));
     v.ctx.lineWidth = 2.5; v.ctx.lineJoin = 'round'; v.ctx.lineCap = 'round'; v.ctx.strokeStyle = css('--loop'); v.ctx.setLineDash([]); v.ctx.stroke(); });
-  const up = e => { if (!L.drawing) return; L.drawing = false; finishStroke(); };
+  const end = how => { if (!L.drawing) return; L.drawing = false; L.pid = null; finishStroke(how); };
+  const up = e => { if (e.pointerId === L.pid) end(e.type); };
   c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
-  function finishStroke(){
-    let pts = rdp(L.stroke, 1.5); if (pts.length > 2 && dist(pts[0], pts[pts.length - 1]) < 3) pts.pop();
-    if (pts.length < 8 || bbox(pts).diam < 40){ $('#lstatus').textContent = 'Too small. Draw a bigger loop.'; L.stroke = null; v.clear(); return; }
-    pts = pts.map(p => [p[0], -p[1]]); v.pts = pts; v.fit();
-    const t0 = performance.now(); v.squares = findSquares(pts); const ms = Math.round(performance.now() - t0);
-    const crosses = selfIntersects(pts), N = v.squares.length;
-    if (N > 0) Snd.square(); else Snd.none();
-    v.clear(); v.drawLoop(pts); v.squares.forEach((s, i) => v.drawSquare(s.pts, COLORS[i % COLORS.length], null, 2.5));
-    $('#lstatus').textContent = N === 0 ? (crosses ? 'No square found, which a self-crossing loop may do.' : 'No square found.') : `${N} square${N > 1 ? 's' : ''}` + (N % 2 === 0 && !crosses ? ' (even: unusual, probably a near-miss)' : '') + '.';
-    $('#lhint').textContent = (crosses ? 'This loop crosses itself: the theorem makes no promise here. ' : '') + `${pts.length} segments, ${ms} ms.`;
+  window.addEventListener('pointerup', e => { if (e.pointerId === L.pid) end('window ' + e.type); });
+  window.addEventListener('pointercancel', e => { if (e.pointerId === L.pid) end('window ' + e.type); });
+  c.addEventListener('lostpointercapture', e => { if (e.pointerId === L.pid) end(e.type); });
+  const touchEnd = e => { if (!e.touches || e.touches.length === 0) end(e.type); };
+  c.addEventListener('touchend', touchEnd); c.addEventListener('touchcancel', touchEnd);
+  function finishStroke(how){
+    const note = how === 'pointerup' ? '' : ` (stroke ended by ${how})`;
+    try {
+      let pts = rdp(L.stroke, 1.5); if (pts.length > 2 && dist(pts[0], pts[pts.length - 1]) < 3) pts.pop();
+      if (pts.length < 8 || bbox(pts).diam < 40){ $('#lstatus').textContent = 'Too small. Draw a bigger loop.'; $('#lhint').textContent = `${L.stroke.length} points${note}.`; L.stroke = null; v.clear(); return; }
+      pts = pts.map(p => [p[0], -p[1]]); v.pts = pts; v.fit();
+      const t0 = performance.now(); v.squares = findSquares(pts); const ms = Math.round(performance.now() - t0);
+      const crosses = selfIntersects(pts), N = v.squares.length;
+      v.clear(); v.drawLoop(pts); v.squares.forEach((s, i) => v.drawSquare(s.pts, COLORS[i % COLORS.length], null, 2.5));
+      $('#lstatus').textContent = N === 0 ? (crosses ? 'No square found, which a self-crossing loop may do.' : 'No square found.') : `${N} square${N > 1 ? 's' : ''}` + (N % 2 === 0 && !crosses ? ' (even: unusual, probably a near-miss)' : '') + '.';
+      $('#lhint').textContent = (crosses ? 'This loop crosses itself: the theorem makes no promise here. ' : '') + `${pts.length} segments, ${ms} ms${note}.`;
+      try { if (N > 0) Snd.square(); else Snd.none(); } catch (err) { console.warn('sound', err); }
+    } catch (err) {
+      console.error('lab', err);
+      $('#lstatus').textContent = 'Something went wrong while solving this loop.';
+      $('#lhint').textContent = `${err && err.name ? err.name + ': ' : ''}${err && err.message ? err.message : err} (${L.stroke ? L.stroke.length : 0} points${note}). Please report this with the Feedback button.`;
+    }
   }
-  $('#clear').addEventListener('click', () => { L.stroke = null; v.pts = null; v.squares = []; v.clear(); $('#lstatus').textContent = 'Draw a loop with your finger or mouse.'; $('#lhint').textContent = 'The theorem promises a square for every loop that does not cross itself.'; });
+  $('#clear').addEventListener('click', () => { L.stroke = null; L.drawing = false; L.pid = null; v.pts = null; v.squares = []; v.clear(); $('#lstatus').textContent = 'Draw a loop with your finger or mouse.'; $('#lhint').textContent = 'The theorem promises a square for every loop that does not cross itself.'; });
 })();
 
 // ---------------- tabs, init ----------------
