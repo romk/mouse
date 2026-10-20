@@ -77,7 +77,7 @@ a{color:var(--accent)}
   <section id="daily" class="card">
     <div class="row between">
       <b id="daylabel"></b>
-      <div class="muted" id="clock">0:00</div>
+      <div class="row"><div class="muted" id="clock">0:00</div><button class="btn quiet" id="btnSound" title="Sound on or off" aria-label="Sound on" style="padding:.2em .5em;line-height:1">🔊</button></div>
     </div>
     <div class="status" id="dstatus"></div>
     <canvas id="dcanvas"></canvas>
@@ -195,6 +195,28 @@ const D = { view: makeView($('#dcanvas')), day: 1, mode: 'side', help: 'guided',
 const KEY = 'squarepeg-v2';   // v2: the stock was regenerated with the decoy filter, old progress refers to other loops
 let store = (() => { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.days) return s; } catch (e) {} return { days: {}, mode: 'side', help: 'guided' }; })();
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+
+// ---------- sound (synthesised, no files) ----------
+const Snd = (() => {
+  let ctx = null;
+  const ok = () => { if (store.sound === false) return null;
+    try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); return ctx; } catch (e) { return null; } };
+  const tone = (f, t0, dur, type = 'sine', vol = .12) => { const c = ok(); if (!c) return;
+    const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0;
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + .012); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + .05); };
+  return {
+    unlock: () => ok(),
+    tap:    () => tone(660, 0, .07, 'triangle', .07),                                     // button
+    grab:   () => tone(880, 0, .05, 'triangle', .05),                                     // picking up a handle
+    square: () => { tone(659, 0, .18, 'triangle', .09); tone(988, .1, .3, 'triangle', .09); },   // a square snaps in
+    done:   () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * .09, .3, 'triangle', .1)); },  // all squares of the day
+    dup:    () => tone(220, 0, .14, 'triangle', .06),                                     // that square is already found
+    none:   () => tone(330, 0, .18, 'triangle', .06),                                     // lab: no square in this loop
+  };
+})();
+function setSound(on){ store.sound = on; save(); const b = $('#btnSound'); b.textContent = on ? '🔊' : '🔇'; b.setAttribute('aria-label', on ? 'Sound on' : 'Sound off'); if (on) Snd.unlock(); }
 function dayState(){ return store.days[D.day] || (store.days[D.day] = { found: [], time: 0, done: false }); }
 
 function loadDay(n){
@@ -244,10 +266,11 @@ function check(){ // returns true if a new square was found
   let hit = -1, corners = null, best = 0.12 * v.diam;
   v.squares.forEach((s, i) => { for (const [a, b] of pairs) for (const [x, y] of [[a, b], [b, a]]){ const d = Math.max(dist(P, s.pts[x]), dist(Q, s.pts[y])); if (d < best){ best = d; hit = i; corners = [s.pts[x], s.pts[y]]; } } });
   if (hit < 0){ toast('Almost: that one does not close exactly'); return false; }   // a near-square the generator should have rejected
-  if (st.found.includes(hit)){ toast('You already have that one'); return false; }
+  if (st.found.includes(hit)){ if (!D.dupSounded){ Snd.dup(); D.dupSounded = true; } toast('You already have that one'); return false; }
   D.handles = corners.map(c => { const n = loopNearest(v.pts, c); return { seg: n.seg, t: n.t }; });   // snap
   D.drag = -1;
   st.found.push(hit); startClock(); toast('Square!');
+  if (st.found.length < v.squares.length) Snd.square(); else Snd.done();
   if (st.found.length >= v.squares.length){ st.done = true; stopClock(); st.time = D.elapsed; navigator.vibrate && navigator.vibrate([30, 40, 30]); track('finish', { level: 'd' + D.day, mode: D.help, days: Math.min(99, Math.max(1, Math.round(D.elapsed / 10))) }); }
   save(); fillDays(); updateStatus(); return true;
 }
@@ -276,7 +299,7 @@ function render(){
     if (bi < 0){ // tap elsewhere: move the nearer handle there
       const w = v.toWorld(p); const near = loopNearest(v.pts, w); if (near.d * v.scale > 40) return;
       const d0 = dist(p, v.toScreen(posOn(v.pts, D.handles[0]))), d1 = dist(p, v.toScreen(posOn(v.pts, D.handles[1]))); bi = d0 < d1 ? 0 : 1; D.handles[bi] = { seg: near.seg, t: near.t }; }
-    D.drag = bi; c.setPointerCapture(e.pointerId); startClock(); check(); render(); });
+    D.drag = bi; D.dupSounded = false; Snd.grab(); c.setPointerCapture(e.pointerId); startClock(); check(); render(); });
   c.addEventListener('pointermove', e => { if (D.drag < 0) return; const w = v.toWorld(v.pointer(e)); const near = loopNearest(v.pts, w); D.handles[D.drag] = { seg: near.seg, t: near.t }; check(); render(); });
   const up = e => { if (D.drag < 0) return; D.drag = -1; check(); render(); };
   c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
@@ -332,6 +355,7 @@ const L = { view: makeView($('#lcanvas')), stroke: null, drawing: false };
     pts = pts.map(p => [p[0], -p[1]]); v.pts = pts; v.fit();
     const t0 = performance.now(); v.squares = findSquares(pts); const ms = Math.round(performance.now() - t0);
     const crosses = selfIntersects(pts), N = v.squares.length;
+    if (N > 0) Snd.square(); else Snd.none();
     v.clear(); v.drawLoop(pts); v.squares.forEach((s, i) => v.drawSquare(s.pts, COLORS[i % COLORS.length], null, 2.5));
     $('#lstatus').textContent = N === 0 ? (crosses ? 'No square found, which a self-crossing loop may do.' : 'No square found.') : `${N} square${N > 1 ? 's' : ''}` + (N % 2 === 0 && !crosses ? ' (even: unusual, probably a near-miss)' : '') + '.';
     $('#lhint').textContent = (crosses ? 'This loop crosses itself: the theorem makes no promise here. ' : '') + `${pts.length} segments, ${ms} ms.`;
@@ -351,7 +375,8 @@ function applyPrefs(){ const q = new URLSearchParams(location.search);
   [...$('#modeseg').children].forEach(x => x.setAttribute('aria-pressed', x.dataset.mode === D.mode));
   [...$('#helpseg').children].forEach(x => x.setAttribute('aria-pressed', x.dataset.help === D.help)); }
 window.addEventListener('resize', () => { D.view.resize(); render(); L.view.resize(); });
-applyPrefs(); D.view.resize();
+$('#btnSound').addEventListener('click', () => { setSound(store.sound === false); if (store.sound !== false) Snd.tap(); });
+applyPrefs(); setSound(store.sound !== false); D.view.resize();
 fetch('puzzles.json').then(r => r.ok ? r.json() : null).catch(() => null).then(j => { if (j && j.epoch === isoDay(1) && Array.isArray(j.days)) STOCK = j; else console.warn('no puzzle stock, generating on the fly');
   loadDay(dayOfIso(new URLSearchParams(location.search).get('d')) || localDayNumber()); });
 </script>
