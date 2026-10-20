@@ -6,7 +6,7 @@
 <title>Square Peg</title>
 <meta name="description" content="Every loop hides a square. Find it.">
 <meta name="theme-color" content="#f6e7c8">
-<link rel="canonical" href="https://puzzle.romke.com/square/">
+<link rel="canonical" href="https://romke.com/square/">
 <style>
 :root{
   --star:#f5b301;
@@ -142,7 +142,7 @@ const $ = s => document.querySelector(s);
 const EPOCH = Date.UTC(2026, 9, 10);            // day 1 of the puzzle stock (puzzles.json)
 const HISTORY = 10;                              // playable days: today and the 9 before
 const firstDay = () => Math.max(1, localDayNumber() - HISTORY + 1);
-const SITE = 'https://puzzle.romke.com/square/';
+const SITE = 'https://romke.com/square/';
 const COLORS = ['--sq1','--sq2','--sq3','--sq4','--sq5','--sq6','--sq7'].map(v => getComputedStyle(document.documentElement).getPropertyValue(v).trim());
 function localDayNumber(d = new Date()){ return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - EPOCH) / 86400000) + 1; }
 function dateOfDay(n){ return new Date(EPOCH + (n - 1) * 86400000); }

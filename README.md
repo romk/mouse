@@ -2,7 +2,7 @@
 
 Small puzzle games with a bit of maths behind them, deployed together as one Vercel project.
 
-- `puzzle/index.html`: the overview page, served at the root (`puzzle.romke.com`).
+- `puzzle/index.html`: the overview page, served at the root (`romke.com`).
 - `mouse/`: **Schrödinger's Mouse**. A mouse hides in a ring of holes and moves to a neighbouring hole
   every night. Each day you open two holes. How quickly can you be *sure* to catch it?
   `index.html` is the whole game, `maths.html` the explainer, `stats.html` the private stats page
@@ -41,7 +41,7 @@ with a `.env` file (ignored by git) containing:
 
 ## Production configuration (Vercel)
 
-- Domains: `puzzle.romke.com` (the overview and every game under its folder) and `mouse.romke.com`
+- Domains: `romke.com` (the overview and every game under its folder) and `mouse.romke.com`
   (the mouse at the root, via the host rewrite). Adding a game needs no DNS: a new folder, a card on
   the overview page, and `api/event.js` and `lib/kv.js` told about its name.
 
