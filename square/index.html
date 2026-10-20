@@ -43,6 +43,8 @@ h1{font-size:1.9rem;margin:.2em 0 0;letter-spacing:-.02em}
 .seg button{border:0;background:var(--card);color:var(--fg);padding:.35em .7em;font-weight:700;cursor:pointer;font-size:.9rem}
 .seg button[aria-pressed=true]{background:var(--chip);color:var(--fg);box-shadow:inset 0 0 0 2px var(--accent)}
 [hidden]{display:none!important}
+.err{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));z-index:30;background:#fde8e0;color:#7a2a0a;border:2px solid #e8a080;border-radius:12px;padding:10px 12px;font-size:.9em;line-height:1.35;word-break:break-word;box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.err button{float:right;margin-left:8px;font:inherit;border:0;background:transparent;color:inherit;font-weight:700;cursor:pointer}
 canvas{display:block;width:clamp(220px,calc(100dvh - 420px),100%);margin:0 auto;aspect-ratio:1/1;border-radius:14px;background:var(--card);touch-action:none;cursor:crosshair}
 .status{min-height:1.5em;margin:8px 0 4px;font-weight:700}
 .muted{color:var(--muted);font-size:.9rem}
@@ -137,12 +139,21 @@ a{color:var(--accent)}
   <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn quiet" id="fbCancel">Cancel</button><button class="btn" id="fbSend">Send</button></div>
 </dialog>
 <div class="toast" id="toast"></div>
+<div class="err" id="err" hidden></div>
 
 <script src="peg.js"></script>
 <script>
 'use strict';
 // ---------------- utilities ----------------
 const $ = s => document.querySelector(s);
+// Visible error reporting: a silent exception leaves the page half-empty with no clue, so anything that
+// throws (page errors, failed promises, the day loader) is shown in a box the player can screenshot.
+function showError(where, err){ const e = err || {}; const stack = e.stack ? ' ' + String(e.stack).split('\n').map(l => l.trim()).filter(l => l && !(e.message && l.includes(e.message))).slice(0, 2).join(' | ') : '';
+  const msg = `${where}: ${e.name ? e.name + ': ' : ''}${e.message || String(err)}${stack}`.slice(0, 400);
+  console.error(where, err); const b = $('#err'); b.innerHTML = '<button type="button" aria-label="Close">×</button>'; b.append(msg + ' — please send a screenshot of this with the Feedback button.');
+  b.querySelector('button').onclick = () => { b.hidden = true; }; b.hidden = false; }
+window.addEventListener('error', e => showError('Page error', e.error || { message: e.message + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ')' }));
+window.addEventListener('unhandledrejection', e => showError('Background error', e.reason));
 const EPOCH = Date.UTC(2026, 9, 10);            // day 1 of the puzzle stock (puzzles.json)
 const HISTORY = 10;                              // playable days: today and the 9 before
 const firstDay = () => Math.max(1, localDayNumber() - HISTORY + 1);
@@ -220,8 +231,10 @@ const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (
 function setSound(on){ store.sound = on; save(); const b = $('#btnSound'); b.textContent = on ? '🔊' : '🔇'; b.setAttribute('aria-label', on ? 'Sound on' : 'Sound off'); if (on) Snd.unlock(); }
 function dayState(){ return store.days[D.day] || (store.days[D.day] = { found: [], time: 0, done: false }); }
 
-function loadDay(n){
-  D.day = n; const z = dailyPuzzle(n); const v = D.view; v.pts = z.pts; v.squares = z.squares; v.fit();
+function loadDay(n){ try { loadDay0(n); } catch (err) { showError('Loading day ' + n, err); $('#dstatus').textContent = 'Could not load this day.'; } }
+function loadDay0(n){
+  D.day = n; const t0 = performance.now(); const z = dailyPuzzle(n); const ms = performance.now() - t0; const v = D.view; v.pts = z.pts; v.squares = z.squares; v.fit();
+  if (ms > 1500) toast(`Solving took ${(ms / 1000).toFixed(1)} s on this device.`);
   const st = dayState(); D.elapsed = st.time; D.running = false; D.lastMiss = null;
   // handles start at a fixed spot so everyone sees the same start
   D.handles = [{ seg: 0, t: 0 }, { seg: Math.floor(v.pts.length / 3), t: 0 }];
@@ -400,7 +413,8 @@ window.addEventListener('resize', () => { D.view.resize(); render(); L.view.resi
 $('#btnSound').addEventListener('click', () => { setSound(store.sound === false); if (store.sound !== false) Snd.tap(); });
 applyPrefs(); setSound(store.sound !== false); D.view.resize();
 fetch('puzzles.json').then(r => r.ok ? r.json() : null).catch(() => null).then(j => { if (j && j.epoch === isoDay(1) && Array.isArray(j.days)) STOCK = j; else console.warn('no puzzle stock, generating on the fly');
-  loadDay(dayOfIso(new URLSearchParams(location.search).get('d')) || localDayNumber()); });
+  $('#dstatus').textContent = 'Loading the loop of the day…';
+  setTimeout(() => loadDay(dayOfIso(new URLSearchParams(location.search).get('d')) || localDayNumber()), 30); });
 </script>
 </body>
 </html>
