@@ -209,13 +209,13 @@ const Snd = (() => {
   return {
     unlock: () => ok(),
     tap:    () => tone(660, 0, .07, 'triangle', .07),                                     // button
-    grab:   () => tone(880, 0, .05, 'triangle', .05),                                     // picking up a handle
     square: () => { tone(659, 0, .18, 'triangle', .09); tone(988, .1, .3, 'triangle', .09); },   // a square snaps in
     done:   () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * .09, .3, 'triangle', .1)); },  // all squares of the day
     dup:    () => tone(220, 0, .14, 'triangle', .06),                                     // that square is already found
     none:   () => tone(330, 0, .18, 'triangle', .06),                                     // lab: no square in this loop
   };
 })();
+const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };   // haptics where supported (Android)
 function setSound(on){ store.sound = on; save(); const b = $('#btnSound'); b.textContent = on ? '🔊' : '🔇'; b.setAttribute('aria-label', on ? 'Sound on' : 'Sound off'); if (on) Snd.unlock(); }
 function dayState(){ return store.days[D.day] || (store.days[D.day] = { found: [], time: 0, done: false }); }
 
@@ -270,7 +270,7 @@ function check(){ // returns true if a new square was found
   D.handles = corners.map(c => { const n = loopNearest(v.pts, c); return { seg: n.seg, t: n.t }; });   // snap
   D.drag = -1;
   st.found.push(hit); startClock(); toast('Square!');
-  if (st.found.length < v.squares.length) Snd.square(); else Snd.done();
+  if (st.found.length < v.squares.length){ Snd.square(); buzz(20); } else Snd.done();
   if (st.found.length >= v.squares.length){ st.done = true; stopClock(); st.time = D.elapsed; navigator.vibrate && navigator.vibrate([30, 40, 30]); track('finish', { level: 'd' + D.day, mode: D.help, days: Math.min(99, Math.max(1, Math.round(D.elapsed / 10))) }); }
   save(); fillDays(); updateStatus(); return true;
 }
@@ -299,7 +299,7 @@ function render(){
     if (bi < 0){ // tap elsewhere: move the nearer handle there
       const w = v.toWorld(p); const near = loopNearest(v.pts, w); if (near.d * v.scale > 40) return;
       const d0 = dist(p, v.toScreen(posOn(v.pts, D.handles[0]))), d1 = dist(p, v.toScreen(posOn(v.pts, D.handles[1]))); bi = d0 < d1 ? 0 : 1; D.handles[bi] = { seg: near.seg, t: near.t }; }
-    D.drag = bi; D.dupSounded = false; Snd.grab(); c.setPointerCapture(e.pointerId); startClock(); check(); render(); });
+    D.drag = bi; D.dupSounded = false; buzz(8); c.setPointerCapture(e.pointerId); startClock(); check(); render(); });
   c.addEventListener('pointermove', e => { if (D.drag < 0) return; const w = v.toWorld(v.pointer(e)); const near = loopNearest(v.pts, w); D.handles[D.drag] = { seg: near.seg, t: near.t }; check(); render(); });
   const up = e => { if (D.drag < 0) return; D.drag = -1; check(); render(); };
   c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
