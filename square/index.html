@@ -333,7 +333,7 @@ const L = { view: makeView($('#lcanvas')), stroke: null, drawing: false };
     const t0 = performance.now(); v.squares = findSquares(pts); const ms = Math.round(performance.now() - t0);
     const crosses = selfIntersects(pts), N = v.squares.length;
     v.clear(); v.drawLoop(pts); v.squares.forEach((s, i) => v.drawSquare(s.pts, COLORS[i % COLORS.length], null, 2.5));
-    $('#lstatus').textContent = N === 0 ? 'No square found.' : `${N} square${N > 1 ? 's' : ''}` + (N % 2 === 0 ? ' (even: unusual, probably a near-miss)' : '') + '.';
+    $('#lstatus').textContent = N === 0 ? (crosses ? 'No square found, which a self-crossing loop may do.' : 'No square found.') : `${N} square${N > 1 ? 's' : ''}` + (N % 2 === 0 && !crosses ? ' (even: unusual, probably a near-miss)' : '') + '.';
     $('#lhint').textContent = (crosses ? 'This loop crosses itself: the theorem makes no promise here. ' : '') + `${pts.length} segments, ${ms} ms.`;
   }
   $('#clear').addEventListener('click', () => { L.stroke = null; v.pts = null; v.squares = []; v.clear(); $('#lstatus').textContent = 'Draw a loop with your finger or mouse.'; $('#lhint').textContent = 'The theorem promises a square for every loop that does not cross itself.'; });
