@@ -113,6 +113,43 @@ function findSquares(pts, m = 500, minFrac = 0.05){
   return found;
 }
 
+// Decoys: side-mode handle positions, away from every exact square, whose free corners both come within a small
+// distance of the loop. A player cannot tell such a near-square from a real one, so the generator rejects loops
+// that have one. Returns the smallest such miss as a fraction of the diameter (Infinity if none below `limit`).
+function arcTable(pts){ const n = pts.length, L = pts.map((p, i) => dist(p, pts[(i + 1) % n])), cum = [0]; for (let i = 0; i < n; i++) cum.push(cum[i] + L[i]);
+  const total = cum[n], at = u => { u = ((u % total) + total) % total; let s = 0; while (s < n - 1 && cum[s + 1] < u) s++; return posOn(pts, { seg: s, t: L[s] ? (u - cum[s]) / L[s] : 0 }); };
+  return { L, cum, total, at }; }
+function nearGrid(pts, m, cell){           // approximate distance to the loop: nearest of m samples via a hash grid, exact up to `cell`
+  const { samples } = sampleLoop(pts, m), grid = new Map(), ck = (x, y) => Math.floor(x / cell) * 73856093 ^ Math.floor(y / cell) * 19349663;
+  samples.forEach(s => { const k = ck(s.p[0], s.p[1]); (grid.get(k) || grid.set(k, []).get(k)).push(s.p); });
+  return p => { let best = Infinity; const cx = Math.floor(p[0] / cell), cy = Math.floor(p[1] / cell);
+    for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++){ const g = grid.get((cx + ox) * 73856093 ^ (cy + oy) * 19349663); if (g) for (const q of g){ const d = dist(q, p); if (d < best) best = d; } }
+    return best; };
+}
+function decoyMiss(pts, squares, limit = 0.06, steps = 2, basin = 0.08){
+  const { diam } = bbox(pts), { cum, L, total, at } = arcTable(pts), n = pts.length, near = nearGrid(pts, 600, (limit + 0.03) * diam);
+  const exact = (p, q, sg) => { const sq = squareFrom(p, q, 'side', sg); return Math.max(loopNearest(pts, sq[2]).d, loopNearest(pts, sq[3]).d) / diam; };
+  const inBasin = (p, q) => squares.some(s => [[0, 1], [1, 2], [2, 3], [3, 0], [1, 0], [2, 1], [3, 2], [0, 3]].some(([x, y]) => dist(p, s.pts[x]) < basin * diam && dist(q, s.pts[y]) < basin * diam));
+  const U = []; for (let s = 0; s < n; s++) for (let k = 0; k < steps; k++) U.push(cum[s] + L[s] * k / steps);
+  const H = U.map(at), scanTol = (limit + 1.5 * total / U.length / diam + 0.5 * total / 600 / diam) * diam, cand = [], minD = 0.12 * diam;
+  for (let a = 0; a < H.length; a++){ const p = H[a];
+    for (let b = a + 1; b < H.length; b++){ const q = H[b], dx = q[0] - p[0], dy = q[1] - p[1]; if (dx * dx + dy * dy < minD * minD) continue;
+      for (const sg of [1, -1]){ const rx = -sg * dy, ry = sg * dx;
+        const m1 = near([q[0] + rx, q[1] + ry]); if (m1 > scanTol) continue;
+        const m2 = near([p[0] + rx, p[1] + ry]); if (m2 > scanTol) continue;
+        if (!inBasin(p, q)) cand.push({ m: Math.max(m1, m2) / diam, u: U[a], v: U[b], sg }); } } }
+  cand.sort((x, y) => x.m - y.m);
+  let best = Infinity; const done = [];
+  for (const c of cand){ if (done.some(d => d.sg === c.sg && dist(at(d.u), at(c.u)) < 0.05 * diam && dist(at(d.v), at(c.v)) < 0.05 * diam)) continue; done.push(c);
+    let { u, v, sg } = c, m = exact(at(u), at(v), sg), step = total / U.length;            // coordinate descent on the two arc positions
+    for (let it = 0; it < 300 && step > 1e-7 * total; it++){ let moved = false;
+      for (const [du, dv] of [[step, 0], [-step, 0], [0, step], [0, -step], [step, step], [-step, -step], [step, -step], [-step, step]]){ const mm = exact(at(u + du), at(v + dv), sg); if (mm < m){ m = mm; u += du; v += dv; moved = true; } }
+      if (!moved) step /= 2; }
+    if (!inBasin(at(u), at(v))) best = Math.min(best, m);
+    if (done.length >= 6) break; }
+  return best;
+}
+
 
 // ---------------- loop generator ----------------
 // A loop is r(th) = 1 + sum a_k cos(k th + ph_k), sampled at N points. terms = [[k, a, ph], ...]
@@ -133,4 +170,4 @@ function seededPuzzle(day){
   const terms = randomTerms(mulberry32(day)), pts = loopFromTerms(terms); return { terms, pts, squares: findSquares(pts) };
 }
 
-if (typeof module !== 'undefined') module.exports = { mulberry32, dist, segNearest, loopNearest, posOn, bbox, selfIntersects, rdp, squareFrom, sqKey, sameSquare, exactSquare, sampleLoop, findSquares, loopFromTerms, randomTerms, seededPuzzle, LOOP_N };
+if (typeof module !== 'undefined') module.exports = { mulberry32, dist, segNearest, loopNearest, posOn, bbox, selfIntersects, rdp, squareFrom, sqKey, sameSquare, exactSquare, sampleLoop, findSquares, decoyMiss, loopFromTerms, randomTerms, seededPuzzle, LOOP_N };

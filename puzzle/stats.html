@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Puzzle stats</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#f6e7c8;--fg:#3a2a1a;--muted:#8a7256;--card:#fff7e6;--card-border:#e6cfa3;--accent:#ff8c42}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;font-family:"Nunito",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg);display:flex;justify-content:center}
+main{width:100%;max-width:760px}
+h1{font-size:1.6rem;font-weight:900;margin:.3em 0}
+h2{font-size:1.3rem;font-weight:900;margin:1.6em 0 .2em;padding-top:.8em;border-top:2px solid var(--card-border)}
+h3{font-size:1rem;font-weight:900;margin:1.4em 0 .4em;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+input{font:inherit;padding:.5em .8em;border:2px solid var(--card-border);border-radius:10px;width:260px;max-width:100%}
+button{font:inherit;font-weight:900;border:0;border-radius:999px;padding:.55em 1.1em;background:var(--accent);color:#fff;cursor:pointer}
+table{border-collapse:collapse;width:100%;font-size:.95rem;background:var(--card);border-radius:12px;overflow:hidden}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--card-border)}
+th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+td:first-child,th:first-child{text-align:left}
+.runs td,.runs th{text-align:left}
+.kpi{display:flex;gap:12px;flex-wrap:wrap}
+.kpi div{background:var(--card);border:2px solid var(--card-border);border-radius:14px;padding:10px 14px;min-width:120px}
+.kpi b{display:block;font-size:1.5rem}
+.kpi span{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
+.fb{background:var(--card);border:2px solid var(--card-border);border-radius:12px;padding:10px 12px;margin:8px 0;white-space:pre-wrap}
+.fb .t{color:var(--muted);font-size:.8rem}
+.muted{color:var(--muted)}
+.hidden{display:none}
+a{color:inherit}
+</style>
+</head>
+<body>
+<main>
+<h1>Puzzle stats</h1>
+<p class="muted">Private page for all games. Counters and completed runs with coarse location (country and city as Vercel sees it), never an IP. <a href="./">Overview</a> · <a href="https://vercel.com/romkes-projects/mathpuzzles/analytics" target="_blank" rel="noopener">Vercel analytics</a></p>
+<div id="login"><input id="tok" type="password" placeholder="Stats token" autocomplete="off"> <button id="go">Show</button> <span id="err" class="muted"></span></div>
+<div id="out" class="hidden">
+  <h3>All games</h3><div class="kpi" id="all"></div>
+  <h3>Last 30 days, plays started per game</h3><div id="alldaily"></div>
+  <div id="games"></div>
+</div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
+const table = (head, rows, cls = '') => `<table class="${cls}"><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+const kpis = list => list.map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+const when = t => { const dt = new Date(t); return dt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
+const place = r => [r.city, r.region, r.country].filter(Boolean).join(', ') || '–';
+const byDate = daily => { const d = {}; for (const k in daily) { const [date, n] = k.split(':'); (d[date] = d[date] || {})[n] = daily[k]; } return d; };
+const feedbackHtml = (list, label) => list.length ? list.map(f => `<div class="fb"><div class="t">${new Date(f.t).toLocaleString()}${f.level ? ' · ' + esc(label(f.level)) : ''}</div>${esc(f.text)}</div>`).join('') : '<p class="muted">No feedback yet.</p>';
+
+// ---- per game renderers: each returns HTML for its section and gets the game's { likes, events, feedback, runs }
+const par = n => n <= 2 ? 1 : 2 * Math.floor((n - 1) / 2);
+const MNAMES = { t3r: 'Learn 3 (real)', t3s: 'Learn 3', t4s: 'Learn 4', l5: 'Five', l7: 'Seven', l9: 'Nine', l11: 'Eleven', l13: 'Thirteen', l15: 'Fifteen', l17: 'Seventeen', l19: 'Nineteen' };
+const MORDER = Object.keys(MNAMES), nOf = id => +(id.match(/\d+/) || [0])[0];
+function mouse(d) {
+  const ev = d.events, out = [];
+  out.push(`<h2>Schrödinger's Mouse</h2><div class="kpi">${kpis([['Likes', d.likes], ['Runs started', sum(ev.start)], ['Caught', sum(ev.finish)], ['Got away', sum(ev.fail)], ['Shares', sum(ev.share)], ['Replays watched', sum(ev.replay)], ['Feedback', d.feedback.length]])}</div>`);
+  const runs = d.runs.slice().sort((a, b) => b.t - a.t);
+  out.push('<h3>Recent runs</h3>' + (runs.length ? table(['When', 'Level', 'Mode', 'Result', 'Location'], runs.map(r => {
+    const p = par(nOf(r.level));
+    const result = r.n === 'finish' ? `caught in ${r.days}d${r.days <= p ? ' ★★★' : r.days <= p + 2 ? ' ★★' : ' ★'}` : 'got away';
+    return [when(r.t), MNAMES[r.level] || r.level, r.mode, result, esc(place(r))]; }), 'runs') : '<p class="muted">No completed runs yet.</p>'));
+  const rows = [], keys = new Set([...Object.keys(ev.start), ...Object.keys(ev.finish), ...Object.keys(ev.fail)]);
+  for (const k of [...keys].sort((a, b) => MORDER.indexOf(a.split(':')[0]) - MORDER.indexOf(b.split(':')[0]) || a.localeCompare(b))) {
+    const [lv, mode] = k.split(':'), p = par(nOf(lv)), started = ev.start[k] || 0, fin = ev.finish[k] || 0, fail = ev.fail[k] || 0;
+    let atPar = 0, tot = 0;
+    for (const dk in ev.finish_days) { const [l2, m2, dd] = dk.split(':'); if (l2 === lv && m2 === mode) { tot += ev.finish_days[dk]; if (+dd <= p) atPar += ev.finish_days[dk]; } }
+    rows.push([MNAMES[lv] || lv, mode, started, fin, fail, started ? Math.round(100 * (fin + fail) / started) + '%' : '–', tot ? Math.round(100 * atPar / tot) + '%' : '–']);
+  }
+  out.push('<h3>Per level</h3>' + (rows.length ? table(['Level', 'Mode', 'Started', 'Caught', 'Got away', 'Finished', 'At par'], rows) : '<p class="muted">No runs yet.</p>'));
+  const byLevel = {};
+  for (const dk in ev.finish_days) { const [lv, , dd] = dk.split(':'); (byLevel[lv] = byLevel[lv] || {})[dd] = (byLevel[lv][dd] || 0) + ev.finish_days[dk]; }
+  const drows = Object.keys(byLevel).sort((a, b) => MORDER.indexOf(a) - MORDER.indexOf(b)).map(lv => { const h = byLevel[lv], ds = Object.keys(h).map(Number).sort((a, b) => a - b); return [MNAMES[lv] || lv, par(nOf(lv)), ds.map(x => `${x}d: ${h[x]}`).join(', ')]; });
+  out.push('<h3>Days to catch (finished runs, per level)</h3>' + (drows.length ? table(['Level', 'Par', 'Days: runs'], drows) : '<p class="muted">Nothing yet.</p>'));
+  const days = byDate(ev.daily), dates = Object.keys(days).sort().slice(-30).reverse();
+  out.push('<h3>Last 30 days</h3>' + (dates.length ? table(['Date', 'Started', 'Caught', 'Got away', 'Shares'], dates.map(dt => [dt, days[dt].start || 0, days[dt].finish || 0, days[dt].fail || 0, days[dt].share || 0])) : '<p class="muted">Nothing yet.</p>'));
+  out.push('<h3>Feedback</h3>' + feedbackHtml(d.feedback, l => MNAMES[l] || l));
+  return out.join('');
+}
+function square(d) {
+  const ev = d.events, out = [];
+  out.push(`<h2>Square Peg</h2><div class="kpi">${kpis([['Likes', d.likes], ['Days started', sum(ev.start)], ['Days solved', sum(ev.finish)], ['Shares', sum(ev.share)], ['Feedback', d.feedback.length]])}</div>`);
+  const runs = d.runs.slice().sort((a, b) => b.t - a.t);
+  out.push('<h3>Recent solves</h3>' + (runs.length ? table(['When', 'Day', 'Help', 'Time', 'Location'], runs.map(r => [when(r.t), esc(r.level || '–'), esc(r.mode || '–'), r.days ? r.days * 10 + ' s' : '–', esc(place(r))]), 'runs') : '<p class="muted">No solves yet.</p>'));
+  const days = byDate(ev.daily), dates = Object.keys(days).sort().reverse().slice(0, 30);
+  out.push('<h3>Last 30 days</h3>' + (dates.length ? table(['Date', 'Started', 'Solved', 'Shares'], dates.map(dt => [dt, days[dt].start || 0, days[dt].finish || 0, days[dt].share || 0])) : '<p class="muted">Nothing yet.</p>'));
+  out.push('<h3>Feedback</h3>' + feedbackHtml(d.feedback, l => l));
+  return out.join('');
+}
+const GAMES = { mouse: { title: 'Mouse', render: mouse }, square: { title: 'Square Peg', render: square } };
+
+async function load(token) {
+  $('#err').textContent = 'Loading…';
+  const r = await fetch('/api/stats', { headers: { Authorization: 'Bearer ' + token } });
+  if (r.status === 401) { $('#err').textContent = 'Wrong token.'; return; }
+  if (r.status === 503) { $('#err').textContent = 'The store is not configured yet.'; return; }
+  if (!r.ok) { $('#err').textContent = 'Error ' + r.status; return; }
+  const { games } = await r.json();
+  try { sessionStorage.setItem('puzzle-stats-token', token); } catch (e) {}
+  $('#login').classList.add('hidden'); $('#out').classList.remove('hidden');
+  const ids = Object.keys(games), tot = k => ids.reduce((a, g) => a + (k === 'likes' ? games[g].likes : k === 'feedback' ? games[g].feedback.length : sum(games[g].events[k])), 0);
+  $('#all').innerHTML = kpis([['Likes', tot('likes')], ['Plays started', tot('start')], ['Finished', tot('finish')], ['Shares', tot('share')], ['Feedback', tot('feedback')]]);
+  const per = {}; for (const g of ids) per[g] = byDate(games[g].events.daily);
+  const dates = [...new Set(ids.flatMap(g => Object.keys(per[g])))].sort().reverse().slice(0, 30);
+  $('#alldaily').innerHTML = dates.length ? table(['Date', ...ids.map(g => (GAMES[g] || { title: g }).title)], dates.map(dt => [dt, ...ids.map(g => (per[g][dt] || {}).start || 0)])) : '<p class="muted">Nothing yet.</p>';
+  $('#games').innerHTML = ids.map(g => GAMES[g] ? GAMES[g].render(games[g]) : `<h2>${esc(g)}</h2><pre>${esc(JSON.stringify(games[g], null, 1))}</pre>`).join('');
+}
+$('#go').addEventListener('click', () => load($('#tok').value.trim()));
+$('#tok').addEventListener('keydown', e => { if (e.key === 'Enter') load($('#tok').value.trim()); });
+try { const t = sessionStorage.getItem('puzzle-stats-token'); if (t) { $('#tok').value = t; load(t); } } catch (e) {}
+</script>
+</body>
+</html>

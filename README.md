@@ -1,12 +1,13 @@
-# Puzzles
+# Math puzzles
 
 Small puzzle games with a bit of maths behind them, deployed together as one Vercel project.
 
-- `puzzle/index.html`: the overview page, served at the root (`romke.com`).
+- `puzzle/index.html`: the overview page, served at the root (`romke.com`). `puzzle/stats.html` is the
+  private stats page for all games, served at `/stats` (needs the `STATS_TOKEN`).
 - `mouse/`: **Schrödinger's Mouse**. A mouse hides in a ring of holes and moves to a neighbouring hole
   every night. Each day you open two holes. How quickly can you be *sure* to catch it?
-  `index.html` is the whole game, `maths.html` the explainer, `stats.html` the private stats page
-  (needs the `STATS_TOKEN`), `DESIGN.md` the design notes, `solve.py` the brute-force par solver,
+  `index.html` is the whole game, `maths.html` the explainer, `DESIGN.md` the design notes,
+  `solve.py` the brute-force par solver,
   plus the manifest, service worker and icons that make it installable and offline.
   Also served at `mouse.romke.com` (a host rewrite in `vercel.json` maps that domain onto `/mouse/`).
 - `square/`: **Square Peg**. Every loop hides a square (Toeplitz' inscribed square problem). A loop a
@@ -47,7 +48,7 @@ with a `.env` file (ignored by git) containing:
 
 - Storage: Upstash for Redis from the Vercel Marketplace, connected to the project. It sets
   `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Without them the API answers 503 and the game still works.
-- `STATS_TOKEN`: any long secret; it unlocks `/stats.html`.
+- `STATS_TOKEN`: any long secret; it unlocks `/stats`.
 - Web Analytics: enable it in the project's Analytics tab. The page only loads the script on
   `*.romke.com` and `*.vercel.app`.
 

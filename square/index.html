@@ -189,7 +189,7 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 
 // ---------------- daily game ----------------
 const D = { view: makeView($('#dcanvas')), day: 1, mode: 'side', help: 'guided', handles: null, drag: -1, elapsed: 0, running: false, lastMiss: null };
-const KEY = 'squarepeg-v1';
+const KEY = 'squarepeg-v2';   // v2: the stock was regenerated with the decoy filter, old progress refers to other loops
 let store = (() => { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.days) return s; } catch (e) {} return { days: {}, mode: 'side', help: 'guided' }; })();
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
 function dayState(){ return store.days[D.day] || (store.days[D.day] = { found: [], time: 0, done: false }); }
@@ -228,18 +228,19 @@ function candidates(){ const v = D.view, P = posOn(v.pts, D.handles[0]), Q = pos
 function freeCorners(sq){ return D.mode === 'side' ? [sq[2], sq[3]] : [sq[1], sq[3]]; }
 function missOf(sq){ const v = D.view; return freeCorners(sq).map(c => loopNearest(v.pts, c)); }
 
-const TOL = { guided: 0.03, solo: 0.035 };   // handle-to-corner tolerance, fraction of the loop's diameter
+const TOL = { guided: 0.025, solo: 0.03 };   // how close both free corners must come to the loop, fraction of its diameter
 function check(){ // returns true if a new square was found
   const v = D.view, st = dayState(), tol = TOL[D.help] * v.diam;
   const P = posOn(v.pts, D.handles[0]), Q = posOn(v.pts, D.handles[1]);
-  // miss of the free corners, for feedback only
-  D.lastMiss = Math.min(...candidates().map(sq => Math.max(...missOf(sq).map(m => m.d)))) / v.diam;
-  // hit: both handles within tol of two corners of one exact square (adjacent in side mode, opposite in diagonal mode)
+  // hit: the candidate square the player sees has both free corners on the loop (within tol)
+  const cands = candidates().map(sq => ({ sq, miss: Math.max(...missOf(sq).map(m => m.d)) })).sort((a, b) => a.miss - b.miss);
+  D.lastMiss = cands[0].miss / v.diam;
+  if (cands[0].miss >= tol) return false;
+  // which exact square is it? the one whose corners the handles sit on (adjacent in side mode, opposite in diagonal mode)
   const pairs = D.mode === 'side' ? [[0, 1], [1, 2], [2, 3], [3, 0]] : [[0, 2], [1, 3]];
-  let hit = -1, corners = null;
-  v.squares.forEach((s, i) => { for (const [a, b] of pairs) for (const [x, y] of [[a, b], [b, a]])
-    if (dist(P, s.pts[x]) < tol && dist(Q, s.pts[y]) < tol && (hit < 0 || st.found.includes(hit))){ hit = i; corners = [s.pts[x], s.pts[y]]; } });
-  if (hit < 0) return false;
+  let hit = -1, corners = null, best = 0.12 * v.diam;
+  v.squares.forEach((s, i) => { for (const [a, b] of pairs) for (const [x, y] of [[a, b], [b, a]]){ const d = Math.max(dist(P, s.pts[x]), dist(Q, s.pts[y])); if (d < best){ best = d; hit = i; corners = [s.pts[x], s.pts[y]]; } } });
+  if (hit < 0){ toast('Almost: that one does not close exactly'); return false; }   // a near-square the generator should have rejected
   if (st.found.includes(hit)){ toast('You already have that one'); return false; }
   D.handles = corners.map(c => { const n = loopNearest(v.pts, c); return { seg: n.seg, t: n.t }; });   // snap
   D.drag = -1;

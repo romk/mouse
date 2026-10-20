@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/:path((?!api/|_vercel/).*)", "has": [{ "type": "host", "value": "mouse.romke.com" }], "destination": "/mouse/:path" },
-    { "source": "/", "destination": "/puzzle/" }
+    { "source": "/", "destination": "/puzzle/" },
+    { "source": "/stats", "destination": "/puzzle/stats.html" }
   ]
 }
