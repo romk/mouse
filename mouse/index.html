@@ -50,7 +50,7 @@ body{
 }
 .app{width:100%;max-width:560px}
 .screen{animation:fadein .3s}
-h1{font-size:2rem;font-weight:900;margin:.2em 0 .1em;letter-spacing:-.02em}
+h1{font-size:clamp(1.4rem,7vw,2rem);font-weight:900;margin:.2em 0 .1em;letter-spacing:-.02em}
 h1 .m{display:inline-block;transform:rotate(-8deg)}
 h1 .ver{font-size:.75rem;font-weight:300;color:var(--muted);letter-spacing:0;vertical-align:.45em;margin-left:.1em}   /* keep in step with CACHE in sw.js */
 h2{font-size:1rem;font-weight:900;margin:1.2em 0 .5em;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
@@ -147,7 +147,7 @@ svg#board{width:100%;height:auto;display:block;touch-action:manipulation;user-se
 <div class="app">
 
 <section id="levels" class="screen">
-  <h1>Schrödinger's <span class="m">🐭</span> Mouse <span class="ver">v5</span></h1>
+  <h1>Schrödinger's <span class="m">🐭</span> <span style="white-space:nowrap">Mouse <span class="ver">v6</span></span></h1>
   <p class="tagline">A mouse hides in a ring of holes and moves to a neighbouring hole every night. Each day you open two holes. How quickly can you be <em>sure</em> to catch it?</p>
   <h2>Learn</h2><div class="grid" id="gridLearn"></div>
   <h2>Play</h2><div class="grid" id="gridPlay"></div>
