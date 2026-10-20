@@ -70,7 +70,7 @@ a{color:var(--accent)}
 </head>
 <body>
 <div class="wrap">
-  <h1><span style="white-space:nowrap">Square Peg <span class="ver">v1.7</span></span></h1>
+  <h1><span style="white-space:nowrap">Square Peg <span class="ver">v1.8</span></span></h1>
   <p class="tag">Every loop hides a square. Find it.</p>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true" data-tab="daily">Daily</button>
@@ -109,12 +109,6 @@ a{color:var(--accent)}
     <div class="days" id="days"></div>
   </section>
 
-  <div class="row between" id="foot" style="margin-top:12px">
-    <button class="btn quiet" id="btnLike"><span id="likeHeart">🤍</span> <span id="likeLabel">Like</span><span id="likeCount"></span></button>
-    <button class="btn quiet" id="btnFeedback">Feedback</button>
-  </div>
-  <p class="muted" style="margin-top:14px">Sibling of <a href="../mouse/">Schrödinger's Mouse</a>. <a href="../">All puzzles.</a></p>
-
   <section id="lab" class="card hidden">
     <div class="status" id="lstatus">Draw a loop with your finger or mouse.</div>
     <canvas id="lcanvas"></canvas>
@@ -123,6 +117,14 @@ a{color:var(--accent)}
       <button class="btn quiet" id="clear">Clear</button>
     </div>
   </section>
+
+  <div id="foot">
+  <div class="row between" style="margin-top:12px">
+    <button class="btn quiet" id="btnLike"><span id="likeHeart">🤍</span> <span id="likeLabel">Like</span><span id="likeCount"></span></button>
+    <button class="btn quiet" id="btnFeedback">Feedback</button>
+  </div>
+  <p class="muted" style="margin-top:14px">Sibling of <a href="../mouse/">Schrödinger's Mouse</a>. <a href="../">All puzzles.</a></p>
+  </div>
 
   <section id="about" class="card about hidden">
     <p><b>The claim.</b> Draw any loop that does not cross itself. Somewhere on it lie four points that are the corners of a perfect square. This is Toeplitz' conjecture from 1911, also called the inscribed square problem or the square peg problem.</p>
