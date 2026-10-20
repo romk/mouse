@@ -42,7 +42,7 @@ h1{font-size:1.9rem;margin:.2em 0 0;letter-spacing:-.02em}
 .seg{display:inline-flex;border:2px solid var(--card-border);border-radius:10px;overflow:hidden}
 .seg button{border:0;background:var(--card);color:var(--fg);padding:.35em .7em;font-weight:700;cursor:pointer;font-size:.9rem}
 .seg button[aria-pressed=true]{background:var(--chip);color:var(--fg);box-shadow:inset 0 0 0 2px var(--accent)}
-canvas{display:block;width:clamp(220px,calc(100dvh - 470px),100%);margin:0 auto;aspect-ratio:1/1;border-radius:14px;background:var(--card);touch-action:none;cursor:crosshair}
+canvas{display:block;width:clamp(220px,calc(100dvh - 420px),100%);margin:0 auto;aspect-ratio:1/1;border-radius:14px;background:var(--card);touch-action:none;cursor:crosshair}
 .status{min-height:1.5em;margin:8px 0 4px;font-weight:700}
 .muted{color:var(--muted);font-size:.9rem}
 select{font:inherit;padding:.3em .4em;border-radius:8px;border:2px solid var(--card-border);background:var(--card);color:var(--fg);max-width:60vw}
@@ -91,7 +91,7 @@ a{color:var(--accent)}
         <button data-help="solo" aria-pressed="false">Solo</button>
       </div>
     </div>
-    <div class="row between" style="margin-top:10px">
+    <div class="row between" id="actions" style="margin-top:10px" hidden>
       <div class="muted" id="dhint">Drag the two handles along the loop.</div>
       <div class="row">
         <button class="btn quiet" id="reset" title="Clear this day's progress">Reset</button>
@@ -239,8 +239,10 @@ function fillDays(){
 function updateStatus(){
   const st = dayState(), N = D.view.squares.length, k = st.found.length;
   $('#dstatus').textContent = st.done ? `All ${N} square${N > 1 ? 's' : ''} found in ${fmtTime(st.time)}.`
+    : k === 0 ? `This loop hides ${N} square${N > 1 ? 's' : ''}. ` + (D.help === 'guided' ? 'Drag the handles; red lines show how far the free corners miss.' : 'Drag the handles.')
     : `This loop hides ${N} square${N > 1 ? 's' : ''}. Found ${k}.`;
   $('#share').disabled = !st.done;
+  $('#actions').hidden = k === 0 && !st.done;   // Reset and Share only once something is found, keeps the canvas tall on phones
   $('#dhint').textContent = st.done ? 'Try another day, or the Lab.' : D.help === 'guided' ? 'Drag the handles. Red lines show how far the free corners miss.' : 'Drag the handles. No help: the square appears when you have it.';
 }
 function tick(){ if (!D.running) return; D.elapsed = D.elapsed0 + (performance.now() - D.t0) / 1000; $('#clock').textContent = fmtTime(D.elapsed); requestAnimationFrame(tick); }
