@@ -6,7 +6,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), os = require('os'), { spawnSync } = require('child_process');
 const peg = require('./peg.js');
-const DECOY = 0.05;   // smallest allowed free-corner miss of any near-square, fraction of the diameter (well above the 2.5-3% play tolerance in index.html)
+const DECOY = 0.05;   // smallest allowed free-corner miss of any near-square, fraction of the diameter (well above the 1.9-2.2% play tolerance in index.html)
 const OUT = path.join(__dirname, 'puzzles.json');
 
 function generate(day){
