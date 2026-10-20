@@ -1,5 +1,5 @@
 // Offline support. Network first (so updates arrive immediately), cache as fallback.
-const CACHE = 'mouse-v3';
+const CACHE = 'mouse-v4';
 const SHELL = ['./', 'index.html', 'maths.html', 'manifest.webmanifest', 'favicon.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];   // relative to this script: works at / and at /mouse/
 
 self.addEventListener('install', e => {
