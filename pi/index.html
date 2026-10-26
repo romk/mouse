@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Where π hides</title>
+<meta name="description" content="Ten small experiments where the number π turns up uninvited.">
+<link rel="icon" href="../mouse/favicon.png" sizes="64x64" type="image/png">
+<meta name="theme-color" content="#f6e7c8">
+<style>
+:root{ --bg:#f6e7c8; --bg2:#f0d9a8; --fg:#3a2a1a; --muted:#8a7256; --card:#fff7e6; --card-border:#e6cfa3; --accent:#ff8c42; --accent2:#2f8f9d; --line:#d9c29a; }
+@media (prefers-color-scheme: dark){ :root{ --bg:#1f2740; --bg2:#141a2c; --fg:#f0ecdf; --muted:#aab0c4; --card:#2a3350; --card-border:#3b476a; --line:#3b476a; --accent2:#5ec4d3; } }
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:radial-gradient(circle at 50% 30%,var(--bg) 0%,var(--bg2) 100%);color:var(--fg)}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 16px 40px}
+h1{font-size:2rem;margin:.2em 0 0;letter-spacing:-.02em}
+.tag{color:var(--muted);margin:0 0 1.2em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.tile{background:var(--card);border:2px solid var(--card-border);border-radius:18px;padding:12px 12px 10px;box-shadow:0 6px 0 rgba(90,64,48,.15);display:flex;flex-direction:column}
+.tile h2{font-size:1.05rem;margin:0 0 8px}
+.tile h2 small{display:block;color:var(--muted);font-weight:500;font-size:.8rem;margin-top:2px}
+canvas{width:100%;height:auto;display:block;border-radius:10px;background:var(--bg);touch-action:manipulation}
+.est{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:1.35rem;margin:8px 0 0;line-height:1.3;min-height:1.7em}
+.est .ok{color:var(--accent);font-weight:700}
+.est .lbl{color:var(--muted);font-size:.8rem;font-family:system-ui,sans-serif;margin-right:.4em}
+.sub{color:var(--muted);font-size:.82rem;margin:2px 0 6px;min-height:1.2em}
+.ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:auto}
+button,select{font:inherit;font-size:.85rem;color:var(--fg);background:var(--bg);border:1.5px solid var(--card-border);border-radius:10px;padding:5px 10px;cursor:pointer}
+button:active{transform:translateY(1px)}
+input[type=range]{flex:1;min-width:80px;accent-color:var(--accent)}
+.ctl label{color:var(--muted);font-size:.8rem;display:flex;align-items:center;gap:6px;flex:1}
+.blurb{color:var(--muted);font-size:.82rem;line-height:1.4;margin:8px 0 0}
+.foot{color:var(--muted);font-size:.85rem;margin-top:24px}
+.foot a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Where π hides</h1>
+  <p class="tag">Ten small experiments where π turns up uninvited. Digits in orange are the ones already right.</p>
+  <div class="grid" id="grid"></div>
+  <p class="foot">Made by Romke Jonker. Part of <a href="/">romke.com</a>.</p>
+</div>
+<script>
+(() => {
+const PI_STR = '3.141592653589793';
+const W = 320, H = 240, DPR = Math.min(2, window.devicePixelRatio || 1);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let C = {};
+function readColors(){ C = { fg: css('--fg'), muted: css('--muted'), accent: css('--accent'), accent2: css('--accent2'), line: css('--line'), bg: css('--bg') }; }
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); tiles.forEach(t => t.exp.onTheme && t.exp.onTheme()); });
+
+const fmt = (x, d = 6) => (isFinite(x) && x >= 0) ? (Math.floor(x * 10 ** d) / 10 ** d).toFixed(d) : '—';
+function digits(x, d = 6){
+  const s = fmt(x, d);
+  if (s === '—') return '<span class="lbl">…</span>—';
+  let k = 0; while (k < s.length && s[k] === PI_STR[k]) k++;
+  return `<span class="ok">${s.slice(0, k)}</span>${s.slice(k)}`;
+}
+const big = n => n.toLocaleString('en-US');
+const rnd = (a, b) => a + Math.random() * (b - a);
+function offscreen(w, h){ const c = document.createElement('canvas'); c.width = w * DPR; c.height = h * DPR; const x = c.getContext('2d'); x.scale(DPR, DPR); return [c, x]; }
+function clear(ctx){ ctx.clearRect(0, 0, W, H); }
+
+// ---------- experiments ----------
+const EXPS = [];
+
+// 1. Rolling wheel
+EXPS.push({
+  name: 'Rolling wheel', hint: 'one turn of a wheel of diameter 1',
+  blurb: 'A wheel of diameter 1 makes one full turn along a ruler. The distance it rolls is its circumference: π, by definition. Not a discovery, just the starting point.',
+  reset(){ this.t = 0; this.theta = 0; },
+  step(dt){ this.t += dt; const T = 4, P = 1.6; const u = this.t % (T + P); this.theta = Math.min(1, u / T) * 2 * Math.PI; },
+  draw(ctx){
+    clear(ctx);
+    const scale = (W - 40) / 3.4, R = 0.5 * scale, base = 175, x0 = 20;
+    const d = this.theta * 0.5;
+    ctx.strokeStyle = C.line; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(W - 10, base); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    for (let k = 0; k <= 3; k++){ const x = x0 + k * scale; ctx.beginPath(); ctx.moveTo(x, base); ctx.lineTo(x, base + 8); ctx.stroke(); ctx.fillText(k, x, base + 22); }
+    const xpi = x0 + Math.PI * scale; ctx.beginPath(); ctx.moveTo(xpi, base); ctx.lineTo(xpi, base + 8); ctx.stroke(); ctx.fillText('π', xpi, base + 22);
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x0 + d * scale, base); ctx.stroke();
+    const cx = x0 + d * scale, cy = base - R;
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI); ctx.stroke();
+    const rem = 2 * Math.PI - this.theta;
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI / 2 - this.theta, Math.PI / 2 - this.theta + rem); ctx.stroke();
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + R * Math.sin(this.theta), cy + R * Math.cos(this.theta)); ctx.stroke();
+    ctx.fillStyle = C.fg; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, 7); ctx.fill();
+  },
+  readout(){ return [digits(this.theta * 0.5)]; },
+  sub(){ return `${Math.round(this.theta / (2 * Math.PI) * 360)}° of one turn`; }
+});
+
+// 2. Archimedes' polygons
+EXPS.push({
+  name: "Archimedes' polygons", hint: 'squeezed between two n-gons',
+  blurb: 'A regular polygon inside the circle is shorter than the circle; one outside is longer. More sides, tighter squeeze. Archimedes stopped at 96 sides and got 3.1408 < π < 3.1429.',
+  range: { label: 'sides', min: 3, max: 200, get(){ return this.n; }, set(v){ this.n = v; this.hold = 0; } },
+  reset(){ this.n = 3; this.acc = 0; this.hold = 0; },
+  step(dt){ if (this.n >= 200) return; this.acc += dt; const per = this.n < 12 ? 0.6 : this.n < 40 ? 0.25 : 0.06; if (this.acc > per){ this.acc = 0; this.n++; } },
+  draw(ctx){
+    clear(ctx);
+    const n = this.n, cx = W / 2, cy = H / 2, R = 100;
+    ctx.strokeStyle = C.muted; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.beginPath();
+    const Ro = R / Math.cos(Math.PI / n);
+    for (let k = 0; k <= n; k++){ const a = -Math.PI / 2 + Math.PI / n + k * 2 * Math.PI / n; ctx[k ? 'lineTo' : 'moveTo'](cx + Ro * Math.cos(a), cy + Ro * Math.sin(a)); }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let k = 0; k <= n; k++){ const a = -Math.PI / 2 + k * 2 * Math.PI / n; ctx[k ? 'lineTo' : 'moveTo'](cx + R * Math.cos(a), cy + R * Math.sin(a)); }
+    ctx.stroke();
+  },
+  readout(){ const n = this.n; return [digits(n * Math.sin(Math.PI / n)) + '<span class="lbl"> &lt; π &lt; </span>' + digits(n * Math.tan(Math.PI / n))]; },
+  sub(){ return `${this.n} sides: half the inner and outer perimeter`; }
+});
+
+// 3. Quadtree squares
+EXPS.push({
+  name: 'Squares in a circle', hint: 'ever smaller squares',
+  blurb: 'Start with one big square around the unit circle. Keep squares that lie fully inside, throw away those fully outside, and split the ones on the edge into four. The area kept creeps up to π; kept plus edge squares comes down to it.',
+  S: 236,
+  reset(){ this.depth = 0; this.inside = 0; this.edge = [[-1, -1, 2]]; this.edgeArea = 4; this.acc = 0; [this.oc, this.ox] = offscreen(this.S, this.S); this.ox.clearRect(0, 0, this.S, this.S); this.maxDepth = 10; },
+  classify(x, y, s){
+    const dx = Math.max(x, -(x + s), 0), dy = Math.max(y, -(y + s), 0);
+    const near = Math.hypot(dx, dy);
+    const fx = Math.max(Math.abs(x), Math.abs(x + s)), fy = Math.max(Math.abs(y), Math.abs(y + s));
+    const far = Math.hypot(fx, fy);
+    return far <= 1 ? 1 : near >= 1 ? -1 : 0;
+  },
+  split(){
+    const next = []; let area = 0; const k = this.S / 2;
+    const ox = this.ox; ox.fillStyle = C.accent; ox.strokeStyle = C.bg; ox.lineWidth = 0.5;
+    for (const [x, y, s] of this.edge){
+      const h = s / 2;
+      for (const [a, b] of [[x, y], [x + h, y], [x, y + h], [x + h, y + h]]){
+        const c = this.classify(a, b, h);
+        if (c === 1){ this.inside += h * h; const px = (a + 1) * k, py = (b + 1) * k, ps = h * k; ox.fillRect(px, py, ps, ps); if (ps > 2) ox.strokeRect(px, py, ps, ps); }
+        else if (c === 0){ next.push([a, b, h]); area += h * h; }
+      }
+    }
+    this.edge = next; this.edgeArea = area; this.depth++;
+  },
+  onTheme(){ const d = this.depth; this.reset(); for (let i = 0; i < d; i++) this.split(); },
+  step(dt){ if (this.depth >= this.maxDepth) return; this.acc += dt; if (this.acc > (this.depth < 3 ? 1.0 : 0.7)){ this.acc = 0; this.split(); } },
+  draw(ctx){
+    clear(ctx);
+    const S = this.S, x0 = (W - S) / 2, y0 = (H - S) / 2, k = S / 2;
+    ctx.drawImage(this.oc, x0, y0, S, S);
+    ctx.strokeStyle = C.muted; ctx.lineWidth = 0.7;
+    if (this.edge.length < 6000) for (const [x, y, s] of this.edge) ctx.strokeRect(x0 + (x + 1) * k, y0 + (y + 1) * k, s * k, s * k);
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(W / 2, H / 2, k, 0, 7); ctx.stroke();
+  },
+  readout(){ return [digits(this.inside) + '<span class="lbl"> &lt; π &lt; </span>' + digits(this.inside + this.edgeArea)]; },
+  sub(){ return `depth ${this.depth}: ${big(this.edge.length)} squares on the edge`; }
+});
+
+// 4. Darts
+EXPS.push({
+  name: 'Darts', hint: 'random points, circle in a square',
+  blurb: 'Throw darts at random into a square with a circle inside. The share that lands in the circle is its area over the square\'s: π/4. Slow and noisy: ten times the darts buys you one more digit, roughly. Tap to throw 200 more.',
+  S: 236,
+  reset(){ this.n = 0; this.inside = 0; [this.oc, this.ox] = offscreen(this.S, this.S); },
+  throw(k){
+    const ox = this.ox, S = this.S;
+    for (let i = 0; i < k; i++){
+      const x = Math.random() * 2 - 1, y = Math.random() * 2 - 1, inn = x * x + y * y <= 1;
+      this.n++; if (inn) this.inside++;
+      ox.fillStyle = inn ? C.accent : C.muted; ox.fillRect((x + 1) / 2 * S - 0.75, (y + 1) / 2 * S - 0.75, 1.5, 1.5);
+    }
+  },
+  tap(){ this.throw(200); },
+  step(){ this.throw(this.n < 2000 ? 10 : 60); },
+  draw(ctx){
+    clear(ctx); const S = this.S, x0 = (W - S) / 2, y0 = (H - S) / 2;
+    ctx.drawImage(this.oc, x0, y0, S, S);
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.strokeRect(x0, y0, S, S); ctx.beginPath(); ctx.arc(W / 2, H / 2, S / 2, 0, 7); ctx.stroke();
+  },
+  readout(){ return [digits(4 * this.inside / this.n)]; },
+  sub(){ return `${big(this.n)} darts, ${big(this.inside)} in the circle, × 4`; }
+});
+
+// 5. Buffon's needle
+EXPS.push({
+  name: "Buffon's needle", hint: 'needles on a striped floor',
+  blurb: 'Drop needles on a floor with stripes as wide as the needle is long. The chance a needle crosses a line is 2/π (Buffon, 1777). So π ≈ 2 × needles ÷ crossings. Tap the floor to drop one yourself.',
+  T: 40,
+  reset(){ this.n = 0; this.cross = 0; [this.oc, this.ox] = offscreen(W, H); },
+  drop(x, y, a){
+    const T = this.T, L = T, h = Math.abs(Math.sin(a)) * L / 2;
+    const c = Math.floor((y - h) / T) !== Math.floor((y + h) / T);
+    this.n++; if (c) this.cross++;
+    const ox = this.ox; ox.strokeStyle = c ? C.accent : C.fg; ox.lineWidth = c ? 2 : 1.2; ox.globalAlpha = c ? 0.9 : 0.55;
+    ox.beginPath(); ox.moveTo(x - Math.cos(a) * L / 2, y - h * Math.sign(Math.sin(a))); ox.lineTo(x + Math.cos(a) * L / 2, y + h * Math.sign(Math.sin(a))); ox.stroke(); ox.globalAlpha = 1;
+  },
+  tap(x, y){ this.drop(x, y, Math.random() * Math.PI); },
+  step(){ const k = this.n < 300 ? 1 : this.n < 3000 ? 4 : 20; if (this.n > 400){ const ox = this.ox; ox.globalCompositeOperation = 'destination-out'; ox.fillStyle = 'rgba(0,0,0,0.04)'; ox.fillRect(0, 0, W, H); ox.globalCompositeOperation = 'source-over'; } for (let i = 0; i < k; i++) this.drop(rnd(0, W), rnd(0, H), Math.random() * Math.PI); },
+  draw(ctx){
+    clear(ctx);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1.5;
+    for (let y = 0; y <= H; y += this.T){ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    ctx.drawImage(this.oc, 0, 0, W, H);
+  },
+  readout(){ return [digits(2 * this.n / this.cross)]; },
+  sub(){ return `${big(this.n)} needles, ${big(this.cross)} crossing a line`; }
+});
+
+// 6. Bouncing blocks
+EXPS.push({
+  name: 'Bouncing blocks', hint: 'count the clacks',
+  blurb: 'A big block slides into a small one, which bounces between it and a wall. Count every clack. With the big block 100ⁿ times heavier, the count is the first n+1 digits of π (Galperin, 1995). Shown at one clack per tick, not in real time.',
+  select: { label: 'mass ratio', options: [[1, '1 : 1'], [100, '1 : 100'], [1e4, '1 : 10 000'], [1e6, '1 : 1 000 000'], [1e8, '1 : 100 000 000']], get(){ return this.ratio; }, set(v){ this.ratio = +v; this.reset(); } },
+  ratio: 100,
+  reset(){
+    const M = this.ratio, m = 1; let xs = 0.25, xb = 1.0, vs = 0, vb = -1;
+    const XS = [xs], XB = [xb];
+    for (let n = 0; n < 1e7; n++){
+      let tb = Infinity, tw = Infinity;
+      if (vb < vs) tb = (xb - xs) / (vs - vb);
+      if (vs < 0) tw = -xs / vs;
+      if (tb === Infinity && tw === Infinity) break;
+      const t = Math.min(tb, tw); xs += vs * t; xb += vb * t;
+      if (tb <= tw){ const a = ((m - M) * vs + 2 * M * vb) / (m + M), b = ((M - m) * vb + 2 * m * vs) / (m + M); vs = a; vb = b; xb = xs; } else { vs = -vs; xs = 0; }
+      XS.push(xs); XB.push(xb);
+    }
+    this.XS = XS; this.XB = XB; this.N = XS.length - 1; this.vs = vs; this.vb = vb; this.u = -1; this.t = 0; this.done = 0;
+  },
+  step(dt){
+    const N = this.N;
+    if (this.u < 0){ this.u = Math.min(0, this.u + dt / 1.5); if (this.u === 0) this.u = 1e-9; return; }
+    if (this.u < N){ this.u = Math.min(N, this.u + dt * Math.max(2, N / 8)); return; }
+    this.done = Math.min(2.5, this.done + dt);
+  },
+  state(){
+    const u = this.u, XS = this.XS, XB = this.XB;
+    if (u < 0){ const f = u + 1; return [XS[0], 1.3 * (1 - f) + XB[0] * f]; }
+    const i = Math.min(this.N, Math.floor(u)), f = u - i;
+    if (i >= this.N){ const d = this.done * 0.35; return [XS[this.N] + this.vs * d, XB[this.N] + this.vb * d]; }
+    return [XS[i] * (1 - f) + XS[i + 1] * f, XB[i] * (1 - f) + XB[i + 1] * f];
+  },
+  draw(ctx){
+    clear(ctx);
+    const [xs, xb] = this.state(), scale = 160, wall = 24, floor = 190, sm = 16;
+    const bg = 24 + 6 * Math.log10(this.ratio);
+    ctx.fillStyle = C.line; ctx.fillRect(0, floor, W, 3); ctx.fillRect(wall - 4, floor - 120, 4, 123);
+    ctx.fillStyle = C.accent; ctx.fillRect(wall + xs * scale, floor - sm, sm, sm);
+    ctx.fillStyle = C.fg; ctx.fillRect(wall + sm + xb * scale, floor - bg, bg, bg);
+    const n = Math.max(0, Math.min(this.N, Math.floor(this.u)));
+    ctx.fillStyle = C.fg; ctx.font = '700 34px system-ui'; ctx.textAlign = 'left'; ctx.fillText(big(n), 24, 48);
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.fillText('clacks', 26, 66);
+  },
+  readout(){ const n = Math.max(0, Math.min(this.N, Math.floor(this.u))); const k = Math.sqrt(this.ratio); return [digits(n / k, Math.max(0, Math.round(Math.log10(k))))]; },
+  sub(){ const k = Math.sqrt(this.ratio); return `${big(this.N)} clacks in total ÷ √${big(this.ratio)} = ÷ ${big(k)}`; }
+});
+
+// 7. Coprime pairs
+EXPS.push({
+  name: 'Coprime pairs', hint: 'no circle in sight',
+  blurb: 'Colour every pair of whole numbers (a, b) that share no factor. The share of such pairs tends to 6/π² (Cesàro, 1881). No circle anywhere; π sneaks in through the sum 1 + 1/4 + 1/9 + ….',
+  S: 236,
+  reset(){ this.levels = [25, 50, 100, 200, 400, 800, 1600]; this.li = 0; this.start(); },
+  start(){ const N = this.levels[this.li]; this.N = N; this.row = 1; this.cop = 0; this.cnt = 0; this.oc = document.createElement('canvas'); this.oc.width = N; this.oc.height = N; this.ox = this.oc.getContext('2d'); this.img = this.ox.createImageData(N, 1); this.hold = 0; this.rgb = this.parse(C.accent); this.rgb2 = this.parse(C.bg); },
+  parse(col){ const c = document.createElement('canvas').getContext('2d'); c.fillStyle = col; const s = c.fillStyle; return [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)]; },
+  onTheme(){ const li = this.li; this.reset(); this.li = li; this.start(); },
+  gcd(a, b){ while (b){ const t = a % b; a = b; b = t; } return a; },
+  step(dt){
+    const N = this.N;
+    if (this.row > N){ this.hold += dt; if (this.hold > 1.2 && this.li < this.levels.length - 1){ this.li++; this.start(); } return; }
+    const rows = Math.max(1, Math.ceil(N / 150));
+    for (let r = 0; r < rows && this.row <= N; r++, this.row++){
+      const a = this.row, d = this.img.data;
+      for (let b = 1; b <= N; b++){ const c = this.gcd(a, b) === 1; this.cnt++; if (c) this.cop++; const col = c ? this.rgb : this.rgb2, o = (b - 1) * 4; d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255; }
+      this.ox.putImageData(this.img, 0, N - a);
+    }
+  },
+  draw(ctx){
+    clear(ctx); const S = this.S, x0 = (W - S) / 2, y0 = (H - S) / 2;
+    ctx.imageSmoothingEnabled = this.N > 236; ctx.drawImage(this.oc, x0, y0, S, S); ctx.imageSmoothingEnabled = true;
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.strokeRect(x0, y0, S, S);
+  },
+  readout(){ return [digits(Math.sqrt(6 * this.cnt / this.cop))]; },
+  sub(){ return `pairs up to ${big(this.N)}: ${big(this.cop)} of ${big(this.cnt)} coprime, √(6 ÷ share)`; }
+});
+
+// 8. Basel stack
+EXPS.push({
+  name: 'Shrinking squares', hint: '1 + ¼ + ⅑ + …',
+  blurb: 'Squares of side 1, ½, ⅓, ¼, … in a row. Their total area is 1 + 1/4 + 1/9 + … = π²/6 (Euler, 1734, the Basel problem). The filled square on the right has that total area; the dashed one is the target.',
+  reset(){ this.n = 0; this.sum = 0; },
+  step(){ const k = Math.max(1, Math.ceil(this.n / 150)); for (let i = 0; i < k; i++){ this.n++; this.sum += 1 / (this.n * this.n); } },
+  draw(ctx){
+    clear(ctx);
+    const S = 96, base = 200, x0 = 12;
+    ctx.fillStyle = C.accent; let x = x0;
+    for (let n = 1; n <= this.n; n++){ const s = S / n; if (s < 0.4) break; ctx.globalAlpha = n === 1 ? 1 : 0.85; ctx.fillRect(x, base - s, s, s); x += s + (s > 4 ? 1.5 : 0); }
+    ctx.globalAlpha = 1;
+    const T = Math.sqrt(Math.PI * Math.PI / 6) * S * 0.85, cx = W - 78, cy = 140, t = Math.sqrt(this.sum) * S * 0.85;
+    ctx.strokeStyle = C.muted; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.strokeRect(cx - T / 2, cy - T / 2, T, T); ctx.setLineDash([]);
+    ctx.fillStyle = C.accent2; ctx.fillRect(cx - t / 2, cy - t / 2, t, t);
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('π²/6', cx, cy + T / 2 + 16);
+  },
+  readout(){ return [digits(Math.sqrt(6 * this.sum))]; },
+  sub(){ return `${big(this.n)} squares, area ${this.sum.toFixed(6)}, √(6 × area)`; }
+});
+
+// 9. Leibniz zigzag
+EXPS.push({
+  name: 'Leibniz zigzag', hint: '4 − 4/3 + 4/5 − …',
+  blurb: 'Step 4 to the right, 4/3 back, 4/5 forward, 4/7 back, for ever. The path narrows onto π (Leibniz, 1676; Madhava earlier). Beautiful and useless: a million steps for six digits.',
+  reset(){ this.k = 0; this.s = 0; this.pts = []; this.next = 1; },
+  step(){ const k = Math.max(1, Math.ceil(this.k / 250)); for (let i = 0; i < k; i++){ this.s += 4 * (this.k % 2 ? -1 : 1) / (2 * this.k + 1); this.k++; if (this.k >= this.next){ this.pts.push([this.s, this.k]); this.next = this.k < 40 ? this.k + 1 : Math.ceil(this.next * 1.1); } } },
+  draw(ctx){
+    clear(ctx);
+    const xOf = s => 20 + (s - 2) / 2 * (W - 40), yOf = k => 14 + Math.log(k) / Math.log(2e6) * (H - 28);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xOf(2), 10); ctx.lineTo(xOf(2), H - 10); ctx.moveTo(xOf(4), 10); ctx.lineTo(xOf(4), H - 10); ctx.stroke();
+    ctx.strokeStyle = C.accent2; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(xOf(Math.PI), 10); ctx.lineTo(xOf(Math.PI), H - 10); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('2', xOf(2), H - 2); ctx.fillText('4', xOf(4), H - 2); ctx.fillText('π', xOf(Math.PI), H - 2);
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(xOf(0) < 0 ? 0 : xOf(0), yOf(1));
+    ctx.moveTo(xOf(4), yOf(1));
+    for (const [s, k] of this.pts) ctx.lineTo(xOf(s), yOf(k));
+    ctx.lineTo(xOf(this.s), yOf(Math.max(1, this.k))); ctx.stroke();
+    ctx.fillStyle = C.fg; ctx.beginPath(); ctx.arc(xOf(this.s), yOf(Math.max(1, this.k)), 3.5, 0, 7); ctx.fill();
+  },
+  readout(){ return [digits(this.s)]; },
+  sub(){ return `${big(this.k)} terms`; }
+});
+
+// 10. Mandelbrot neck
+EXPS.push({
+  name: 'Mandelbrot neck', hint: 'iterate z² + c just off the set',
+  blurb: 'Pick c = −0.75 + εi, a hair above the pinch point of the Mandelbrot set, and iterate z → z² + c until it escapes. The orbit creeps past −½ along a tangent curve, from −π/2 to +π/2, so the number of steps times ε tends to π (Boll, 1991).',
+  select: { label: 'ε', options: [[0.01, '0.01'], [0.001, '0.001'], [0.0001, '0.0001'], [0.00001, '0.00001']], get(){ return this.eps; }, set(v){ this.eps = +v; this.reset(); } },
+  eps: 0.001,
+  reset(){ this.zr = 0; this.zi = 0; this.n = 0; this.gone = false; this.trace = [0]; this.traceEvery = Math.max(1, Math.round(Math.PI / this.eps / 300)); if (!this.mb) this.mandel(); },
+  mandel(){
+    const w = 150, h = 112; const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); const img = x.createImageData(w, h);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++){
+      const cr = -2.1 + 3 * i / w, ci = -1.125 + 2.25 * j / h; let zr = 0, zi = 0, n = 0;
+      while (zr * zr + zi * zi <= 4 && n < 60){ const t = zr * zr - zi * zi + cr; zi = 2 * zr * zi + ci; zr = t; n++; }
+      const o = (j * w + i) * 4, v = n >= 60 ? 60 : 200 - n * 2; img.data[o] = img.data[o + 1] = img.data[o + 2] = v; img.data[o + 3] = n >= 60 ? 255 : 90;
+    }
+    x.putImageData(img, 0, 0); this.mb = c;
+  },
+  step(){
+    if (this.gone) return;
+    const k = Math.max(1, Math.round(Math.PI / this.eps / 240)), cr = -0.75, ci = this.eps;
+    for (let i = 0; i < k; i++){
+      if (this.zr * this.zr + this.zi * this.zi > 4){ this.gone = true; break; }
+      const t = this.zr * this.zr - this.zi * this.zi + cr; this.zi = 2 * this.zr * this.zi + ci; this.zr = t; this.n++;
+      if (this.n % this.traceEvery === 0 || this.trace.length < 60) this.trace.push((this.n % 2 ? -1 : 1) * (this.zr + 0.5) / Math.sqrt(this.eps));
+    }
+  },
+  draw(ctx){
+    clear(ctx);
+    const mw = 150, mh = 112, mx = 6, my = 6;
+    ctx.drawImage(this.mb, mx, my, mw, mh);
+    const px = mx + (-0.75 + 2.1) / 3 * mw, py = my + (0 + 1.125) / 2.25 * mh;
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(px - 6, py); ctx.lineTo(px + 6, py); ctx.moveTo(px, py - 6); ctx.lineTo(px, py + 6); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.font = '11px system-ui'; ctx.textAlign = 'left'; ctx.fillText('c', px + 8, py - 4);
+    // time series of Re(z)
+    const x0 = 10, x1 = W - 10, y0 = 128, y1 = H - 14, exp = Math.PI / this.eps;
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0, y1); ctx.lineTo(x1, y1); ctx.stroke();
+    const yOf = v => y1 - (v + 3) / 6 * (y1 - y0);
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = C.muted; ctx.beginPath(); ctx.moveTo(x0, yOf(0)); ctx.lineTo(x1, yOf(0)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.fillText('how far z sits from −½, flipping sides each step', x1, y0 + 10);
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5; ctx.beginPath();
+    const n = this.trace.length;
+    for (let i = 0; i < n; i++){ const step = i < 60 ? i : (i - 60) * this.traceEvery + 60; const x = x0 + Math.min(1, step / (exp * 1.1)) * (x1 - x0); const y = Math.max(y0, Math.min(y1, yOf(this.trace[i]))); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+    ctx.fillStyle = C.fg; ctx.font = '700 22px system-ui'; ctx.textAlign = 'right'; ctx.fillText(big(this.n), W - 10, 34);
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.fillText(this.gone ? 'escaped' : 'steps', W - 10, 50);
+  },
+  readout(){ return [digits(this.n * this.eps, Math.round(-Math.log10(this.eps)))]; },
+  sub(){ return `${big(this.n)} steps × ${this.eps}${this.gone ? ', escaped' : ''}`; }
+});
+
+// ---------- framework ----------
+const grid = document.getElementById('grid');
+const tiles = EXPS.map((exp, i) => {
+  const el = document.createElement('section'); el.className = 'tile';
+  el.innerHTML = `<h2>${exp.name} <small>${exp.hint}</small></h2><canvas width="${W * DPR}" height="${H * DPR}"></canvas><div class="est"></div><div class="sub"></div><div class="ctl"><button class="play">❚❚</button><button class="rst">↺</button></div><p class="blurb">${exp.blurb}</p>`;
+  grid.appendChild(el);
+  const cv = el.querySelector('canvas'), ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
+  const t = { exp, el, ctx, est: el.querySelector('.est'), sub: el.querySelector('.sub'), play: el.querySelector('.play'), running: true, visible: false };
+  const ctl = el.querySelector('.ctl');
+  if (exp.select){
+    const sel = document.createElement('select');
+    for (const [v, l] of exp.select.options){ const o = document.createElement('option'); o.value = v; o.textContent = l; sel.appendChild(o); }
+    const lab = document.createElement('label'); lab.textContent = exp.select.label; lab.appendChild(sel); ctl.appendChild(lab);
+    sel.addEventListener('change', () => { exp.select.set.call(exp, sel.value); t.running = true; t.play.textContent = '❚❚'; });
+    t.syncSel = () => { sel.value = exp.select.get.call(exp); };
+  }
+  if (exp.range){
+    const r = document.createElement('input'); r.type = 'range'; r.min = exp.range.min; r.max = exp.range.max;
+    const lab = document.createElement('label'); lab.textContent = exp.range.label; lab.appendChild(r); ctl.appendChild(lab);
+    r.addEventListener('input', () => { exp.range.set.call(exp, +r.value); t.running = false; t.play.textContent = '▶'; exp.draw(ctx); show(t); });
+    t.syncRange = () => { r.value = exp.range.get.call(exp); };
+  }
+  t.play.addEventListener('click', () => { t.running = !t.running; t.play.textContent = t.running ? '❚❚' : '▶'; });
+  el.querySelector('.rst').addEventListener('click', () => { exp.reset(); t.running = true; t.play.textContent = '❚❚'; exp.draw(ctx); show(t); });
+  if (exp.tap) cv.addEventListener('pointerdown', e => { const b = cv.getBoundingClientRect(); exp.tap((e.clientX - b.left) / b.width * W, (e.clientY - b.top) / b.height * H); exp.draw(ctx); show(t); });
+  exp.reset();
+  exp.draw(ctx); show(t);
+  return t;
+});
+function show(t){ t.est.innerHTML = t.exp.readout().join('<br>'); t.sub.textContent = t.exp.sub(); if (t.syncSel) t.syncSel(); if (t.syncRange) t.syncRange(); }
+
+const io = new IntersectionObserver(es => es.forEach(e => { const t = tiles.find(t => t.el === e.target); if (t) t.visible = e.isIntersecting; }), { rootMargin: '80px' });
+tiles.forEach(t => io.observe(t.el));
+
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  for (const t of tiles){ if (!t.visible || !t.running) continue; t.exp.step(dt); t.exp.draw(t.ctx); show(t); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__pi = { tiles, frame };
+})();
+</script>
+</body>
+</html>
