@@ -11,7 +11,12 @@
 body{margin:0;padding:16px;font-family:"Nunito",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg);display:flex;justify-content:center}
 main{width:100%;max-width:760px}
 h1{font-size:1.6rem;font-weight:900;margin:.3em 0}
-h2{font-size:1.3rem;font-weight:900;margin:1.6em 0 .2em;padding-top:.8em;border-top:2px solid var(--card-border)}
+h2{font-size:1.3rem;font-weight:900;margin:.6em 0 .2em}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 4px;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:1}
+.tabs button{background:var(--card);color:var(--fg);border:2px solid var(--card-border);font-weight:800}
+.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pane{display:none}
+.pane.on{display:block}
 h3{font-size:1rem;font-weight:900;margin:1.4em 0 .4em;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 input{font:inherit;padding:.5em .8em;border:2px solid var(--card-border);border-radius:10px;width:260px;max-width:100%}
 button{font:inherit;font-weight:900;border:0;border-radius:999px;padding:.55em 1.1em;background:var(--accent);color:#fff;cursor:pointer}
@@ -37,8 +42,11 @@ a{color:inherit}
 <p class="muted">Private page for all games. Counters and completed runs with coarse location (country and city as Vercel sees it), never an IP. <a href="./">Overview</a> · <a href="https://vercel.com/romkes-projects/mathpuzzles/analytics" target="_blank" rel="noopener">Vercel analytics</a></p>
 <div id="login"><input id="tok" type="password" placeholder="Stats token" autocomplete="off"> <button id="go">Show</button> <span id="err" class="muted"></span></div>
 <div id="out" class="hidden">
-  <h3>All games</h3><div class="kpi" id="all"></div>
-  <h3>Last 30 days, plays started per game</h3><div id="alldaily"></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="pane" id="pane-all">
+    <h3>All games</h3><div class="kpi" id="all"></div>
+    <h3>Last 30 days, plays started per game</h3><div id="alldaily"></div>
+  </div>
   <div id="games"></div>
 </div>
 <script>
@@ -51,7 +59,7 @@ const kpis = list => list.map(([k, v]) => `<div><b>${v}</b><span>${k}</span></di
 const when = t => { const dt = new Date(t); return dt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
 const place = r => [r.city, r.region, r.country].filter(Boolean).join(', ') || '–';
 const byDate = daily => { const d = {}; for (const k in daily) { const [date, n] = k.split(':'); (d[date] = d[date] || {})[n] = daily[k]; } return d; };
-const feedbackHtml = (list, label) => list.length ? list.map(f => `<div class="fb"><div class="t">${new Date(f.t).toLocaleString()}${f.level ? ' · ' + esc(label(f.level)) : ''}</div>${esc(f.text)}</div>`).join('') : '<p class="muted">No feedback yet.</p>';
+const feedbackHtml = (list, label) => list.length ? list.map(f => `<div class="fb"><div class="t">${new Date(f.t).toLocaleString()}${f.level && label(f.level) ? ' · ' + esc(label(f.level)) : ''}</div>${esc(f.text)}</div>`).join('') : '<p class="muted">No feedback yet.</p>';
 
 // ---- per game renderers: each returns HTML for its section and gets the game's { likes, events, feedback, runs }
 const par = n => n <= 2 ? 1 : 2 * Math.floor((n - 1) / 2);
@@ -92,7 +100,25 @@ function square(d) {
   out.push('<h3>Feedback</h3>' + feedbackHtml(d.feedback, l => l));
   return out.join('');
 }
-const GAMES = { mouse: { title: 'Mouse', render: mouse }, square: { title: 'Square Peg', render: square } };
+const PI_TILES = { p1: 'Rolling wheel', p2: "Archimedes' polygons", p3: 'Squares in a circle', p4: 'Darts', p5: "Buffon's needle", p6: 'Bouncing blocks', p7: 'Coprime pairs', p8: 'Shrinking squares', p9: 'Leibniz zigzag', p10: 'Mandelbrot neck' };
+function pi(d) {
+  // 'start' with level p0 is a page view; 'replay' with level p1..p10 is a tile's first animation in that view.
+  const ev = d.events, out = [], views = sum(ev.start), plays = sum(ev.replay);
+  out.push(`<h2>Where π hides</h2><div class="kpi">${kpis([['Likes', d.likes], ['Page views', views], ['Tiles animated', plays], ['Per view', views ? (plays / views).toFixed(1) : '–'], ['Feedback', d.feedback.length]])}</div>`);
+  const per = {}; for (const k in ev.replay) { const lv = k.split(':')[0]; per[lv] = (per[lv] || 0) + ev.replay[k]; }
+  const rows = Object.keys(PI_TILES).map(id => [PI_TILES[id], per[id] || 0, views ? Math.round(100 * (per[id] || 0) / views) + '%' : '–']);
+  out.push('<h3>Per tile</h3>' + table(['Tile', 'Animated', 'Of views'], rows));
+  const days = byDate(ev.daily), dates = Object.keys(days).sort().reverse().slice(0, 30);
+  out.push('<h3>Last 30 days</h3>' + (dates.length ? table(['Date', 'Views', 'Tiles animated'], dates.map(dt => [dt, days[dt].start || 0, days[dt].replay || 0])) : '<p class="muted">Nothing yet.</p>'));
+  out.push('<h3>Feedback</h3>' + feedbackHtml(d.feedback, l => ''));
+  return out.join('');
+}
+const GAMES = { mouse: { title: 'Mouse', render: mouse }, square: { title: 'Square Peg', render: square }, pi: { title: 'π', render: pi } };
+function showTab(id) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + id));
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
+  try { history.replaceState(null, '', '#' + id); } catch (e) {}
+}
 
 async function load(token) {
   $('#err').textContent = 'Loading…';
@@ -109,7 +135,10 @@ async function load(token) {
   const per = {}; for (const g of ids) per[g] = byDate(games[g].events.daily);
   const dates = [...new Set(ids.flatMap(g => Object.keys(per[g])))].sort().reverse().slice(0, 30);
   $('#alldaily').innerHTML = dates.length ? table(['Date', ...ids.map(g => (GAMES[g] || { title: g }).title)], dates.map(dt => [dt, ...ids.map(g => (per[g][dt] || {}).start || 0)])) : '<p class="muted">Nothing yet.</p>';
-  $('#games').innerHTML = ids.map(g => GAMES[g] ? GAMES[g].render(games[g]) : `<h2>${esc(g)}</h2><pre>${esc(JSON.stringify(games[g], null, 1))}</pre>`).join('');
+  $('#games').innerHTML = ids.map(g => `<div class="pane" id="pane-${esc(g)}">${GAMES[g] ? GAMES[g].render(games[g]) : `<h2>${esc(g)}</h2><pre>${esc(JSON.stringify(games[g], null, 1))}</pre>`}</div>`).join('');
+  $('#tabs').innerHTML = ['all', ...ids].map(g => `<button data-tab="${esc(g)}">${g === 'all' ? 'All' : esc((GAMES[g] || { title: g }).title)}</button>`).join('');
+  $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) showTab(b.dataset.tab); });
+  const want = location.hash.slice(1); showTab(['all', ...ids].includes(want) ? want : 'all');
 }
 $('#go').addEventListener('click', () => load($('#tok').value.trim()));
 $('#tok').addEventListener('keydown', e => { if (e.key === 'Enter') load($('#tok').value.trim()); });

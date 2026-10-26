@@ -34,6 +34,17 @@ input[type=range]{flex:1;min-width:80px;accent-color:var(--accent)}
 .blurb{color:var(--muted);font-size:.82rem;line-height:1.4;margin:8px 0 0}
 .foot{color:var(--muted);font-size:.85rem;margin-top:24px}
 .foot a{color:var(--accent)}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;margin-top:18px}
+.btn{font:inherit;font-weight:800;font-size:1rem;color:var(--fg);background:var(--card);border:2px solid var(--card-border);border-radius:12px;padding:.4em .9em;cursor:pointer}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+dialog{border:0;border-radius:18px;padding:16px;max-width:420px;width:calc(100% - 32px);color:var(--fg);background:var(--card)}
+dialog::backdrop{background:rgba(40,30,20,.45)}
+dialog h3{margin:0 0 .4em}
+dialog p{color:var(--muted);margin:0 0 .6em;font-size:.9rem}
+textarea{font:inherit;width:100%;padding:8px;border:2px solid var(--card-border);border-radius:10px;background:var(--bg);color:var(--fg);resize:vertical}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:.5em 1em;border-radius:10px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
 </style>
 </head>
 <body>
@@ -41,8 +52,19 @@ input[type=range]{flex:1;min-width:80px;accent-color:var(--accent)}
   <h1>Where π hides</h1>
   <p class="tag">Ten small experiments where π turns up uninvited. Digits in orange are the ones already right.</p>
   <div class="grid" id="grid"></div>
-  <p class="foot">Made by Romke Jonker. Part of <a href="/">romke.com</a>.</p>
+  <div class="row">
+    <button class="btn" id="btnLike"><span id="likeHeart">🤍</span> <span id="likeLabel">Like</span><span id="likeCount"></span></button>
+    <button class="btn" id="btnFeedback">Feedback</button>
+  </div>
+  <p class="foot">Made by Romke Jonker. Siblings: <a href="../mouse/">Schrödinger's Mouse</a> and <a href="../square/">Square Peg</a>. <a href="../">All puzzles.</a></p>
 </div>
+<dialog id="fb">
+  <h3>Feedback</h3>
+  <p>What do you think? A bug, an idea, another place π hides. Anonymous, one message at a time. Nothing but the text is stored.</p>
+  <textarea id="fbText" maxlength="1000" placeholder="Your message" rows="5"></textarea>
+  <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" id="fbCancel">Cancel</button><button class="btn primary" id="fbSend">Send</button></div>
+</dialog>
+<div class="toast" id="toast"></div>
 <script>
 (() => {
 const PI_STR = '3.141592653589793';
@@ -417,13 +439,13 @@ function paint(t){
   ctx.fillStyle = C.fg; ctx.globalAlpha = 0.78; ctx.beginPath(); ctx.roundRect(W / 2 - w / 2, H / 2 - 16, w, 32, 16); ctx.fill(); ctx.globalAlpha = 1;
   ctx.fillStyle = C.bg; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, W / 2, H / 2); ctx.textBaseline = 'alphabetic';
 }
-function setRunning(t, r){ t.running = r; t.play.textContent = r ? PAUSE : PLAY; if (r) t.fresh = false; paint(t); }
-const tiles = EXPS.map(exp => {
+function setRunning(t, r){ t.running = r; t.play.textContent = r ? PAUSE : PLAY; if (r){ t.fresh = false; if (!t.played){ t.played = true; track('replay', { level: t.id }); } } paint(t); }
+const tiles = EXPS.map((exp, idx) => {
   const el = document.createElement('section'); el.className = 'tile';
   el.innerHTML = `<h2>${exp.name} <small>${exp.hint}</small></h2><canvas width="${W * DPR}" height="${H * DPR}"></canvas><div class="est"></div><div class="sub"></div><div class="ctl"><button class="play">▶</button><button class="rst" title="Clear">clear</button></div><p class="blurb">${exp.blurb}</p>`;
   grid.appendChild(el);
   const cv = el.querySelector('canvas'), ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
-  const t = { exp, el, ctx, est: el.querySelector('.est'), sub: el.querySelector('.sub'), play: el.querySelector('.play'), running: false, fresh: true, visible: false };
+  const t = { exp, el, ctx, id: 'p' + (idx + 1), est: el.querySelector('.est'), sub: el.querySelector('.sub'), play: el.querySelector('.play'), running: false, fresh: true, visible: false, played: false };
   const ctl = el.querySelector('.ctl'), syncs = [];
   if (exp.select){
     const sel = document.createElement('select');
@@ -461,6 +483,38 @@ function frame(now){
 }
 requestAnimationFrame(frame);
 window.__pi = { tiles, paint, show, setRunning };
+
+// ---------- likes, feedback, counters (shared API, game 'pi') ----------
+const $ = s => document.querySelector(s);
+const ONLINE = location.protocol.startsWith('http');
+let toastT; function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
+function track(n, data = {}){ if (!ONLINE) return; try { const body = JSON.stringify({ n, game: 'pi', ...data }); if (navigator.sendBeacon) navigator.sendBeacon('/api/event', body); else fetch('/api/event', { method: 'POST', body, keepalive: true }).catch(() => {}); } catch (e) {} }
+if (/\.(romke\.com|vercel\.app)$/.test(location.hostname)){ const s = document.createElement('script'); s.defer = true; s.src = '/_vercel/insights/script.js'; document.head.appendChild(s); }
+const liked = () => { try { return localStorage.getItem('pi-liked') === '1'; } catch (e) { return false; } };
+async function loadLikes(){ if (!ONLINE) return;
+  try { const r = await fetch('/api/like?game=pi'); if (!r.ok) throw 0; const j = await r.json(); $('#likeCount').textContent = j.count ? ' · ' + j.count : ''; } catch (e) {}
+  if (liked()){ $('#likeHeart').textContent = '❤️'; $('#likeLabel').textContent = 'Liked'; } }
+$('#btnLike').addEventListener('click', async () => {
+  if (liked()){ toast('You already liked it. Thanks!'); return; }
+  if (!ONLINE){ toast('Likes need the online version.'); return; }
+  try { const r = await fetch('/api/like', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'pi' }) });
+    if (r.status === 503){ toast('Likes are not switched on yet.'); return; } if (!r.ok) throw 0; const j = await r.json();
+    try { localStorage.setItem('pi-liked', '1'); } catch (e) {}
+    $('#likeHeart').textContent = '❤️'; $('#likeLabel').textContent = 'Liked'; $('#likeCount').textContent = j.count ? ' · ' + j.count : ''; toast('Thank you!');
+  } catch (e) { toast('Could not reach the server.'); } });
+$('#btnFeedback').addEventListener('click', () => { $('#fbText').value = ''; $('#fbSend').disabled = false; $('#fb').showModal(); $('#fbText').focus(); });
+$('#fbCancel').addEventListener('click', () => $('#fb').close());
+$('#fbSend').addEventListener('click', async () => {
+  const text = $('#fbText').value.trim(); if (!text){ $('#fbText').focus(); return; }
+  if (!ONLINE){ toast('Feedback needs the online version.'); return; }
+  $('#fbSend').disabled = true;
+  try { const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'pi', text, level: 'pi' }) });
+    if (r.status === 503){ toast('Feedback is not switched on yet.'); $('#fbSend').disabled = false; return; }
+    if (r.status === 429){ toast('That is enough for today, thank you!'); $('#fb').close(); return; }
+    if (!r.ok) throw 0; $('#fb').close(); toast('Thank you, received!');
+  } catch (e) { toast('Could not send. Try again later.'); $('#fbSend').disabled = false; } });
+loadLikes();
+track('start', { level: 'p0' });   // one per page view; each tile's first play is a 'replay' with its number
 })();
 </script>
 </body>
