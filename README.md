@@ -3,7 +3,7 @@
 Small puzzle games with a bit of maths behind them, deployed together as one Vercel project.
 
 - `puzzle/index.html`: the overview page, served at the root (`romke.com`). `puzzle/stats.html` is the
-  private stats page for all games, served at `/stats` (needs the `STATS_TOKEN`).
+  private stats page for all games, served at `/stats` (needs the `STATS_TOKEN`), one tab per game.
 - `mouse/`: **Schrödinger's Mouse**. A mouse hides in a ring of holes and moves to a neighbouring hole
   every night. Each day you open two holes. How quickly can you be *sure* to catch it?
   `index.html` is the whole game, `maths.html` the explainer, `DESIGN.md` the design notes,
@@ -17,10 +17,11 @@ Small puzzle games with a bit of maths behind them, deployed together as one Ver
   `DESIGN.md` has the theorem and the design, `solve.py` a Python prototype of the solver.
 - `pi/`: **Where π hides**. Ten small experiments where π turns up: a rolling wheel, Archimedes'
   polygons, squares filling a circle, darts, Buffon's needle, Galperin's bouncing blocks, coprime
-  pairs, the Basel sum, the Leibniz series and the Mandelbrot neck. `index.html` is the whole page;
-  no API use.
+  pairs, the Basel sum, the Leibniz series and the Mandelbrot neck. `index.html` is the whole page.
+  Counters: a `start` per page view (level `p0`) and a `replay` the first time a tile is animated
+  (level `p1`..`p10`, the tile's number).
 - `api/`: four small Vercel functions shared by the games: likes, feedback, gameplay counters,
-  stats. They take a `game` field (`mouse` by default, or `square`); the mouse keeps its original
+  stats. They take a `game` field (`mouse` by default, `square` or `pi`); the mouse keeps its original
   Redis keys, other games get a `:game` suffix. `lib/kv.js` talks to the Redis store.
 - `vercel.json`: the rewrites. `mouse.romke.com/*` → `/mouse/*` (except `/api/`), and `/` → `/puzzle/`.
 
