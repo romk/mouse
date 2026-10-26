@@ -11,6 +11,11 @@
       "permanent": true
     },
     {
+      "source": "/pi",
+      "destination": "/pi/",
+      "permanent": true
+    },
+    {
       "source": "/puzzle",
       "destination": "/",
       "permanent": true

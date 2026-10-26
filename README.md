@@ -15,6 +15,10 @@ Small puzzle games with a bit of maths behind them, deployed together as one Ver
   solver and loop generator shared with `gen.js`, which stocks `puzzles.json` with a loop per day
   (`node square/gen.js 400` tops the stock up to 400 days; existing days are never changed).
   `DESIGN.md` has the theorem and the design, `solve.py` a Python prototype of the solver.
+- `pi/`: **Where π hides**. Ten small experiments where π turns up: a rolling wheel, Archimedes'
+  polygons, squares filling a circle, darts, Buffon's needle, Galperin's bouncing blocks, coprime
+  pairs, the Basel sum, the Leibniz series and the Mandelbrot neck. `index.html` is the whole page;
+  no API use.
 - `api/`: four small Vercel functions shared by the games: likes, feedback, gameplay counters,
   stats. They take a `game` field (`mouse` by default, or `square`); the mouse keeps its original
   Redis keys, other games get a `:game` suffix. `lib/kv.js` talks to the Redis store.
