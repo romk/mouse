@@ -194,11 +194,11 @@ EXPS.push({
 EXPS.push({
   name: "Archimedes' polygons", hint: 'squeezed between two n-gons',
   blurb: 'A regular polygon inside the circle is shorter than the circle; one outside is longer. More sides, tighter squeeze. Archimedes stopped at 96 sides and got 3.1408 < π < 3.1429. The view zooms in on the rim, more slowly than the gap closes, so more edges come into view.',
-  range: { label: 'sides', min: 3, max: 300, get(){ return this.n; }, set(v){ this.n = v; } },
+  range: { label: 'sides', min: 3, max: 100, get(){ return this.n; }, set(v){ this.n = v; } },
   R: 100, A: -Math.PI / 5,
   reset(){ this.n = 3; this.acc = 0; },
-  done(){ return this.n >= 300; },
-  step(dt){ if (this.done()) return; this.acc += dt; const per = this.n < 12 ? 0.6 : this.n < 40 ? 0.25 : 0.05; if (this.acc > per){ this.acc = 0; this.n++; } },
+  done(){ return this.n >= 100; },
+  step(dt){ if (this.done()) return; this.acc += dt; const per = this.n < 12 ? 0.6 : this.n < 40 ? 0.25 : 0.12; if (this.acc > per){ this.acc = 0; this.n++; } },
   zoom(){ const n = this.n, gap = this.R * (1 / Math.cos(Math.PI / n) - Math.cos(Math.PI / n)); return Math.max(1, (20 / gap) ** 0.5); },   // lags the squeeze: the gap closes slowly on screen while more edges come into view
   draw(ctx){
     clear(ctx);
