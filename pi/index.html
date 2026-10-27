@@ -107,8 +107,9 @@ function lens(ctx, cx, cy, r, mag, px, py, drawFn, from){
 function lensFrame(ctx, lx, ly, r, M, from){
   ctx.strokeStyle = C.fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, ly, r, 0, 7); ctx.stroke();
   const fr = r / 10, dd = Math.hypot(lx - from.x, ly - from.y);
-  ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(from.x, from.y, fr, 0, 7); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(from.x + fr * (lx - from.x) / dd, from.y + fr * (ly - from.y) / dd); ctx.lineTo(lx - r * (lx - from.x) / dd, ly - r * (ly - from.y) / dd); ctx.stroke(); ctx.setLineDash([]);
+  const path = () => { ctx.beginPath(); ctx.arc(from.x, from.y, fr, 0, 7); ctx.moveTo(from.x + fr * (lx - from.x) / dd, from.y + fr * (ly - from.y) / dd); ctx.lineTo(lx - r * (lx - from.x) / dd, ly - r * (ly - from.y) / dd); };
+  path(); ctx.strokeStyle = C.bg; ctx.lineWidth = 3.5; ctx.stroke();   // light halo so the marker shows on orange and on dark
+  path(); ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = C.muted; ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×' + big(M), lx, ly + r + 11);
 }
 const logSlider = { min: 0, max: 600, toN: v => Math.round(10 ** (v / 100)), fromN: n => Math.round(100 * Math.log10(Math.max(1, n))) };
@@ -260,21 +261,31 @@ EXPS.push({
   sub(){ return `${this.n} sides: half the inner and outer perimeter`; }
 });
 
-// 4. Darts. Every dart is kept, so the slider can go back and forth and the magnifiers can show the ones near the rim.
+// 4. Darts. Every dart is kept, so the slider can go back and forth; the picture is a pixel buffer, and the darts near the
+// rim point are listed as they fall so the magnifiers never scan the whole million.
 EXPS.push({
   name: 'Darts', hint: 'random points, circle in a square',
   blurb: 'Throw darts at random into a square with a circle inside. The share that lands in the circle is its area over the square\'s: π/4. Slow and noisy: a hundred times the darts buys you one more digit. Tap to throw 200 more. Magnifiers open on the rim at 1 000 and 10 000 darts.',
-  S: 200, X0: 10, MAX: 1e5, A: -Math.PI / 5, LENSES: [[268, 50, 10, 1000], [268, 180, 100, 10000]],
-  range: { label: 'darts', min: 0, max: 500, get(){ return this.n ? logSlider.fromN(this.n) : 0; }, set(v){ this.setN(v ? logSlider.toN(v) : 0); } },
-  reset(){ this.xs = new Float32Array(this.MAX); this.ys = new Float32Array(this.MAX); this.inn = new Uint8Array(this.MAX); this.have = 0; this.n = 0; this.inside = 0; [this.oc, this.ox] = offscreen(this.S, this.S); },
-  gen(upto){ for (; this.have < upto; this.have++){ const x = Math.random() * 2 - 1, y = Math.random() * 2 - 1; this.xs[this.have] = x; this.ys[this.have] = y; this.inn[this.have] = x * x + y * y <= 1 ? 1 : 0; } },
-  plot(i){ const S = this.S; this.ox.fillStyle = this.inn[i] ? C.accent : C.muted; this.ox.fillRect((this.xs[i] + 1) / 2 * S - 0.75, (this.ys[i] + 1) / 2 * S - 0.75, 1.5, 1.5); },
-  setN(N){ N = Math.min(N, this.MAX); this.gen(N); this.ox.clearRect(0, 0, this.S, this.S); let c = 0; for (let i = 0; i < N; i++){ c += this.inn[i]; this.plot(i); } this.n = N; this.inside = c; },
-  throw(k){ const N = Math.min(this.MAX, this.n + k); this.gen(N); for (let i = this.n; i < N; i++){ this.inside += this.inn[i]; this.plot(i); } this.n = N; },
-  onTheme(){ this.setN(this.n); },
+  S: 200, X0: 10, MAX: 1e6, A: -Math.PI / 5, LENSES: [[268, 50, 10, 1000], [268, 180, 100, 10000]], R: 42,
+  range: { label: 'darts', min: 0, max: 600, get(){ return this.n ? logSlider.fromN(this.n) : 0; }, set(v){ this.setN(v ? logSlider.toN(v) : 0); } },
+  reset(){
+    this.xs = new Float32Array(this.MAX); this.ys = new Float32Array(this.MAX); this.inn = new Uint8Array(this.MAX); this.have = 0; this.n = 0; this.inside = 0; this.near = [];
+    this.px = this.S * DPR; this.oc = document.createElement('canvas'); this.oc.width = this.oc.height = this.px; this.ox = this.oc.getContext('2d'); this.img = this.ox.createImageData(this.px, this.px);
+    this.parse = col => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = col; const h = c.fillStyle; return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; };
+    this.cIn = this.parse(C.accent); this.cOut = this.parse(C.muted); this.ru = this.R / (this.S / 2 * 10) * 1.3;   // the 10× lens region, in unit coordinates
+  },
+  gen(upto){ const ux = Math.cos(this.A), uy = Math.sin(this.A), ru = this.ru;
+    for (; this.have < upto; this.have++){ const x = Math.random() * 2 - 1, y = Math.random() * 2 - 1; this.xs[this.have] = x; this.ys[this.have] = y; this.inn[this.have] = x * x + y * y <= 1 ? 1 : 0;
+      if (Math.abs(x - ux) < ru && Math.abs(y - uy) < ru) this.near.push(this.have); } },
+  plot(i){ const p = this.px, d = this.img.data, c = this.inn[i] ? this.cIn : this.cOut, x = Math.min(p - 2, Math.floor((this.xs[i] + 1) / 2 * p)), y = Math.min(p - 2, Math.floor((this.ys[i] + 1) / 2 * p));
+    for (const [a, b] of [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]){ const o = (b * p + a) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; } },
+  flush(){ this.ox.putImageData(this.img, 0, 0); },
+  setN(N){ N = Math.min(N, this.MAX); this.gen(N); this.img.data.fill(0); let c = 0; for (let i = 0; i < N; i++){ c += this.inn[i]; this.plot(i); } this.n = N; this.inside = c; this.flush(); },
+  throw(k){ const N = Math.min(this.MAX, this.n + k); this.gen(N); for (let i = this.n; i < N; i++){ this.inside += this.inn[i]; this.plot(i); } this.n = N; this.flush(); },
+  onTheme(){ this.cIn = this.parse(C.accent); this.cOut = this.parse(C.muted); this.setN(this.n); },
   tap(){ this.throw(200); },
   done(){ return this.n >= this.MAX; },
-  step(){ this.throw(this.n < 2000 ? 10 : this.n < 20000 ? 60 : 200); },
+  step(){ this.throw(this.n < 2000 ? 10 : this.n < 20000 ? 60 : this.n < 200000 ? 400 : 2000); },
   lensDarts(ctx, cx, cy, r, M){
     const k = this.S / 2, a = this.A, ux = Math.cos(a), uy = Math.sin(a), f = k * M, lim = r + 2;
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.clip();
@@ -282,14 +293,14 @@ EXPS.push({
     const da = Math.min(Math.PI, r / f * 2.4); ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.beginPath();
     for (let t = 0; t <= 32; t++){ const b = a - da + 2 * da * t / 32; ctx[t ? 'lineTo' : 'moveTo'](cx + (Math.cos(b) - ux) * f, cy + (Math.sin(b) - uy) * f); }
     ctx.stroke();
-    for (let i = 0; i < this.n; i++){ const dx = (this.xs[i] - ux) * f, dy = (this.ys[i] - uy) * f; if (dx < -lim || dx > lim || dy < -lim || dy > lim) continue; ctx.fillStyle = this.inn[i] ? C.accent : C.muted; ctx.beginPath(); ctx.arc(cx + dx, cy + dy, 1.8, 0, 7); ctx.fill(); }
+    for (const i of this.near){ if (i >= this.n) break; const dx = (this.xs[i] - ux) * f, dy = (this.ys[i] - uy) * f; if (dx < -lim || dx > lim || dy < -lim || dy > lim) continue; ctx.fillStyle = this.inn[i] ? C.accent : C.muted; ctx.beginPath(); ctx.arc(cx + dx, cy + dy, 1.8, 0, 7); ctx.fill(); }
     ctx.restore();
   },
   draw(ctx){
     clear(ctx); const S = this.S, x0 = this.X0, y0 = (H - S) / 2, k = S / 2, a = this.A;
     ctx.drawImage(this.oc, x0, y0, S, S);
     ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.strokeRect(x0, y0, S, S); ctx.beginPath(); ctx.arc(x0 + k, y0 + k, k, 0, 7); ctx.stroke();
-    const r = 42; let from = { x: x0 + k + Math.cos(a) * k, y: y0 + k + Math.sin(a) * k };
+    const r = this.R; let from = { x: x0 + k + Math.cos(a) * k, y: y0 + k + Math.sin(a) * k };
     for (const [lx, ly, M, at] of this.LENSES){ if (this.n < at) break; this.lensDarts(ctx, lx, ly, r, M); lensFrame(ctx, lx, ly, r, M, from); from = { x: lx, y: ly }; }
   },
   readout(){ return digits(4 * this.inside / this.n); },
