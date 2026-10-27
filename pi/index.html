@@ -100,7 +100,7 @@ const EXPS = [];
 // Everything is drawn relative to the π mark (which stays put on screen), so the zoom is exact at 100 000×.
 EXPS.push({
   name: 'Rolling wheel', hint: 'one turn of a wheel of diameter 1',
-  blurb: 'A wheel of diameter 1 makes one full turn along a ruler. The distance it rolls is its circumference: π, by definition. Not a discovery, just the starting point. The view zooms in on the mark as the wheel slows down to meet it.',
+  blurb: 'A wheel of diameter 1 makes one full turn along a ruler. The distance it rolls is its circumference: π, by definition. Not a discovery, just the starting point. Past 3 the view zooms in on the mark as the wheel slows down to meet it.',
   range: { label: 'rolled', min: 0, max: 1000, get(){ return Math.round(this.p * 1000); }, set(v){ this.p = v / 1000; } },
   DUR: 10, ZMAX: 1e5,
   reset(){ this.p = 0; },
@@ -109,7 +109,7 @@ EXPS.push({
   s(){ return 1 - (1 - this.p) ** 3; },   // eased share of the turn
   draw(ctx){
     clear(ctx);
-    const s = this.s(), th = 2 * Math.PI * s, d = Math.PI * s, Z = Math.min(this.ZMAX, (1 / Math.max(1e-12, 1 - s)) ** 0.85);
+    const s = this.s(), th = 2 * Math.PI * s, d = Math.PI * s, Z = d < 3 ? 1 : Math.min(this.ZMAX, ((Math.PI - 3) / Math.max(1e-12, Math.PI - d)) ** 0.85);   // zoom starts once the wheel passes 3
     const scale = (W - 40) / 3.4, R = 0.5 * scale, base = 175, x0 = 20, xpi = x0 + Math.PI * scale, sz = scale * Z;
     const X = v => xpi + (v - Math.PI) * sz;   // ruler value → screen x
     // ruler, with ticks as fine as the zoom allows
@@ -140,7 +140,7 @@ EXPS.push({
 // the quadtree itself, built on the fly for the part in view, and the view zooms in on a point of the rim as the depth grows.
 EXPS.push({
   name: 'Squares in a circle', hint: 'ever smaller squares',
-  blurb: 'Start with one big square around the unit circle. Keep squares that lie fully inside, throw away those fully outside, and split the ones on the edge into four. The area kept creeps up to π; kept plus edge squares comes down to it. The view zooms in on the edge as the squares shrink.',
+  blurb: 'Start with one big square around the unit circle. Keep squares that lie fully inside, throw away those fully outside, and split the ones on the edge into four. The area kept creeps up to π; kept plus edge squares comes down to it. The view zooms in on the edge, a little slower than the squares shrink.',
   MAX: 20, A: -Math.PI / 5, K: 100,
   range: { label: 'depth', min: 0, max: 20, get(){ return this.depth; }, set(v){ this.depth = v; this.acc = 0; this.bounds(); } },
   reset(){ this.depth = 0; this.acc = 0; this.bounds(); },
@@ -162,7 +162,7 @@ EXPS.push({
     this.inside = inside * h * h; this.edgeArea = (touch - inside) * h * h; this.edgeCount = touch - inside;
   },
   step(dt){ if (this.done()) return; this.acc += dt; if (this.acc > this.per()){ this.acc = 0; this.depth++; this.bounds(); } },
-  zoom(){ const frac = this.done() ? 0 : Math.min(1, this.acc / this.per()); return Math.max(1, 2 ** (this.depth + frac) / 25); },   // cells stay 8 to 16 px wide
+  zoom(){ const frac = this.done() ? 0 : Math.min(1, this.acc / this.per()); return Math.max(1, 2 ** (0.8 * (this.depth + frac)) / 12.5); },   // lags the splitting: edge cells shrink from 8 px at depth 5 to 1 px at depth 20
   draw(ctx){
     clear(ctx);
     const d = this.depth, Z = this.zoom(), f = this.K * Z, ux = Math.cos(this.A), uy = Math.sin(this.A), g = 1 - 1 / Z, cx = ux * g, cy = uy * g;
@@ -193,13 +193,13 @@ EXPS.push({
 // 3. Archimedes' polygons. The view zooms in on a point of the rim so the gap between the polygons stays visible.
 EXPS.push({
   name: "Archimedes' polygons", hint: 'squeezed between two n-gons',
-  blurb: 'A regular polygon inside the circle is shorter than the circle; one outside is longer. More sides, tighter squeeze. Archimedes stopped at 96 sides and got 3.1408 < π < 3.1429. The view zooms in on the rim to keep the gap visible.',
+  blurb: 'A regular polygon inside the circle is shorter than the circle; one outside is longer. More sides, tighter squeeze. Archimedes stopped at 96 sides and got 3.1408 < π < 3.1429. The view zooms in on the rim, more slowly than the gap closes, so more edges come into view.',
   range: { label: 'sides', min: 3, max: 300, get(){ return this.n; }, set(v){ this.n = v; } },
   R: 100, A: -Math.PI / 5,
   reset(){ this.n = 3; this.acc = 0; },
   done(){ return this.n >= 300; },
   step(dt){ if (this.done()) return; this.acc += dt; const per = this.n < 12 ? 0.6 : this.n < 40 ? 0.25 : 0.05; if (this.acc > per){ this.acc = 0; this.n++; } },
-  zoom(){ const n = this.n, gap = this.R * (1 / Math.cos(Math.PI / n) - Math.cos(Math.PI / n)); return Math.max(1, 20 / gap); },
+  zoom(){ const n = this.n, gap = this.R * (1 / Math.cos(Math.PI / n) - Math.cos(Math.PI / n)); return Math.max(1, (20 / gap) ** 0.6); },   // lags the squeeze: the gap closes slowly on screen while more edges come into view
   draw(ctx){
     clear(ctx);
     const n = this.n, R = this.R, Z = this.zoom(), ux = Math.cos(this.A), uy = Math.sin(this.A), g = 1 - 1 / Z;
@@ -312,13 +312,12 @@ EXPS.push({
     }
     this.T = T; this.XS = XS; this.XB = XB; this.VS = VS; this.VB = VB; this.N = T.length - 1; this.t = 0; this.i = 0;
     const N = this.N, exit = (W - this.WALL - this.sizes()[0]) / this.SCALE + 0.02;   // where the big block's left edge leaves the picture
-    this.end = VB[N] > 0 ? T[N] + Math.max(0, exit - XB[N]) / VB[N] : T[N] + 0.5;
+    this.end = Math.min(T[N] + 4 * this.SPEED, VB[N] > 0 ? T[N] + Math.max(0, exit - XB[N]) / VB[N] : T[N] + 0.5);   // at most 4 s after the last clack
   },
   done(){ return this.ratio >= 1e8 && this.t >= this.end; },
   step(dt){
     if (this.t >= this.end){ if (this.ratio < 1e8){ this.ratio *= 100; this.setup(); } return; }   // play runs through all five ratios
-    const fast = this.t >= this.T[this.N] ? 3 : 1;   // after the last clack the big block just leaves: hurry it along
-    this.t = Math.min(this.end, this.t + dt * this.SPEED * fast); while (this.i < this.N && this.T[this.i + 1] <= this.t) this.i++;
+    this.t = Math.min(this.end, this.t + dt * this.SPEED); while (this.i < this.N && this.T[this.i + 1] <= this.t) this.i++;
   },
   draw(ctx){
     clear(ctx);
