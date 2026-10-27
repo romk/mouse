@@ -114,6 +114,7 @@ EXPS.push({
   blurb: 'A wheel of diameter 1 makes one full turn along a ruler. The distance it rolls is its circumference: π, by definition. Not a discovery, just the starting point.',
   range: { label: 'rolled', min: 0, max: 1000, get(){ return Math.round(this.theta / (2 * Math.PI) * 1000); }, set(v){ this.theta = v / 1000 * 2 * Math.PI; } },
   reset(){ this.theta = 0; },
+  done(){ return this.theta >= 2 * Math.PI; },
   step(dt){ this.theta = Math.min(2 * Math.PI, this.theta + dt * Math.PI / 2); },
   draw(ctx){
     clear(ctx);
@@ -136,14 +137,17 @@ EXPS.push({
   sub(){ return `${Math.round(this.theta / (2 * Math.PI) * 360)}° of one turn`; }
 });
 
-// 2. Quadtree squares
+// 2. Quadtree squares. The picture is built as a real quadtree up to depth 9; the area bounds are computed exactly for
+// any depth by counting grid cells per column; the magnifiers enumerate the grid cells around one point of the rim.
 EXPS.push({
   name: 'Squares in a circle', hint: 'ever smaller squares',
-  blurb: 'Start with one big square around the unit circle. Keep squares that lie fully inside, throw away those fully outside, and split the ones on the edge into four. The area kept creeps up to π; kept plus edge squares comes down to it. From depth 5 a 10× magnifier shows the edge, from depth 10 a 100× one.',
-  S: 200, X0: 12, MAX: 11,
-  range: { label: 'depth', min: 0, max: 11, get(){ return this.depth; }, set(v){ this.build(v); } },
+  blurb: 'Start with one big square around the unit circle. Keep squares that lie fully inside, throw away those fully outside, and split the ones on the edge into four. The area kept creeps up to π; kept plus edge squares comes down to it. Every three levels a new magnifier opens on the edge, each one ten times stronger.',
+  S: 150, X0: 10, MAX: 20, PIC: 9, A: -Math.PI / 5,
+  LENSES: [[206, 38, 10, 5], [274, 38, 100, 8], [274, 110, 1000, 11], [206, 110, 1e4, 14], [206, 182, 1e5, 17]],   // x, y, magnification, depth it opens
+  range: { label: 'depth', min: 0, max: 20, get(){ return this.depth; }, set(v){ this.build(v); } },
   reset(){ this.build(0); },
-  build(d){ this.depth = 0; this.inside = 0; this.ins = []; this.edge = [[-1, -1, 2]]; this.edgeArea = 4; this.acc = 0; [this.oc, this.ox] = offscreen(this.S, this.S); for (let i = 0; i < d; i++) this.split(); },
+  done(){ return this.depth >= this.MAX; },
+  build(d){ this.depth = 0; this.edge = [[-1, -1, 2]]; this.acc = 0; [this.oc, this.ox] = offscreen(this.S, this.S); this.bounds(); for (let i = 0; i < d; i++) this.split(); },
   classify(x, y, s){
     const dx = Math.max(x, -(x + s), 0), dy = Math.max(y, -(y + s), 0);
     const near = Math.hypot(dx, dy);
@@ -151,43 +155,78 @@ EXPS.push({
     return far <= 1 ? 1 : near >= 1 ? -1 : 0;
   },
   split(){
-    const next = []; let area = 0; const k = this.S / 2, ox = this.ox;
-    ox.fillStyle = C.accent; ox.strokeStyle = C.bg; ox.lineWidth = 0.5;
-    for (const [x, y, s] of this.edge){
-      const h = s / 2;
-      for (const [a, b] of [[x, y], [x + h, y], [x, y + h], [x + h, y + h]]){
-        const c = this.classify(a, b, h);
-        if (c === 1){ this.inside += h * h; this.ins.push([a, b, h]); const px = (a + 1) * k, py = (b + 1) * k, ps = h * k; ox.fillRect(px, py, ps, ps); if (ps > 2) ox.strokeRect(px, py, ps, ps); }
-        else if (c === 0){ next.push([a, b, h]); area += h * h; }
+    this.depth++;
+    if (this.depth <= this.PIC){
+      const next = []; const k = this.S / 2, ox = this.ox;
+      ox.fillStyle = C.accent; ox.strokeStyle = C.bg; ox.lineWidth = 0.5;
+      for (const [x, y, s] of this.edge){
+        const h = s / 2;
+        for (const [a, b] of [[x, y], [x + h, y], [x, y + h], [x + h, y + h]]){
+          const c = this.classify(a, b, h);
+          if (c === 1){ const px = (a + 1) * k, py = (b + 1) * k, ps = h * k; ox.fillRect(px, py, ps, ps); if (ps > 2) ox.strokeRect(px, py, ps, ps); }
+          else if (c === 0) next.push([a, b, h]);
+        }
       }
+      this.edge = next;
     }
-    this.edge = next; this.edgeArea = area; this.depth++;
+    this.bounds();
+  },
+  bounds(){   // exact: per column of the depth-d grid, how many cells lie fully inside and how many touch the circle
+    const n = 2 ** this.depth, h = 2 / n; let inside = 0, touch = 0;
+    for (let i = 0; i < n / 2; i++){   // right half, mirrored
+      const x0 = i * h, x1 = x0 + h, yi = x1 < 1 ? Math.sqrt(1 - x1 * x1) : 0, yo = Math.sqrt(1 - x0 * x0);
+      inside += Math.floor(yi / h + 1e-9); touch += Math.ceil(yo / h - 1e-9);
+    }
+    inside *= 4; touch *= 4;   // four quadrants
+    this.inside = inside * h * h; this.edgeArea = (touch - inside) * h * h; this.edgeCount = touch - inside;
   },
   onTheme(){ this.build(this.depth); },
-  step(dt){ if (this.depth >= this.MAX) return; this.acc += dt; if (this.acc > (this.depth < 3 ? 1.0 : 0.7)){ this.acc = 0; this.split(); } },
-  cells(ctx, mag, ux, uy, ur){ // draw cells near unit-circle point (ux,uy) within radius ur, in main coordinates
-    const k = this.S / 2, x0 = this.X0, y0 = (H - this.S) / 2;
-    const near = ([x, y, s]) => x < ux + ur && x + s > ux - ur && y < uy + ur && y + s > uy - ur;
-    ctx.fillStyle = C.accent; ctx.strokeStyle = C.bg; ctx.lineWidth = 0.5 / mag;
-    for (const c of this.ins) if (near(c)){ const [x, y, s] = c; ctx.fillRect(x0 + (x + 1) * k, y0 + (y + 1) * k, s * k, s * k); ctx.strokeRect(x0 + (x + 1) * k, y0 + (y + 1) * k, s * k, s * k); }
-    ctx.strokeStyle = C.muted; ctx.lineWidth = 0.7 / mag;
-    for (const c of this.edge) if (near(c)){ const [x, y, s] = c; ctx.strokeRect(x0 + (x + 1) * k, y0 + (y + 1) * k, s * k, s * k); }
-    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5 / mag; ctx.beginPath(); ctx.arc(x0 + k, y0 + k, k, 0, 7); ctx.stroke();
+  step(dt){ if (this.done()) return; this.acc += dt; if (this.acc > (this.depth < 3 ? 1.0 : 0.7)){ this.acc = 0; this.split(); } },
+  // One magnifier: the grid cells of the current depth around the rim point, drawn in lens coordinates (no canvas scaling,
+  // so 100 000× stays exact). Below half a pixel per cell the edge is drawn as a smooth arc instead.
+  lensCells(ctx, cx, cy, r, M){
+    const k = this.S / 2, d = this.depth, h = 2 / 2 ** d, a = this.A, ux = Math.cos(a), uy = Math.sin(a);
+    const cell = h * k * M, ru = r / (k * M) * 1.2;
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.clip();
+    ctx.fillStyle = C.bg; ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+    const X = x => cx + (x - ux) * k * M, Y = y => cy + (y - uy) * k * M;   // unit coords → lens pixels
+    if (cell >= 0.5){
+      const i0 = Math.floor((ux - ru + 1) / h), i1 = Math.ceil((ux + ru + 1) / h), j0 = Math.floor((uy - ru + 1) / h), j1 = Math.ceil((uy + ru + 1) / h);
+      ctx.lineWidth = 0.6;
+      for (let i = i0; i < i1; i++) for (let j = j0; j < j1; j++){
+        const x = -1 + i * h, y = -1 + j * h, c = this.classify(x, y, h); if (c < 0) continue;
+        if (c === 1){ ctx.fillStyle = C.accent; ctx.fillRect(X(x), Y(y), cell, cell); ctx.strokeStyle = C.bg; } else ctx.strokeStyle = C.muted;
+        if (cell > 3) ctx.strokeRect(X(x), Y(y), cell, cell);
+      }
+    } else {   // sub-pixel cells: solid inside, the rim as an arc
+      const da = Math.min(Math.PI, ru * 2); ctx.fillStyle = C.accent; ctx.beginPath();
+      for (let t = 0; t <= 32; t++){ const b = a - da + 2 * da * t / 32; ctx[t ? 'lineTo' : 'moveTo'](X(Math.cos(b)), Y(Math.sin(b))); }
+      ctx.lineTo(X(0), Y(0)); ctx.closePath(); ctx.fill();
+    }
+    const da = Math.min(Math.PI, ru * 2); ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let t = 0; t <= 32; t++){ const b = a - da + 2 * da * t / 32; ctx[t ? 'lineTo' : 'moveTo'](X(Math.cos(b)), Y(Math.sin(b))); }
+    ctx.stroke(); ctx.restore();
   },
   draw(ctx){
     clear(ctx);
-    const S = this.S, x0 = this.X0, y0 = (H - S) / 2, k = S / 2;
+    const S = this.S, x0 = this.X0, y0 = (H - S) / 2, k = S / 2, a = this.A;
     ctx.drawImage(this.oc, x0, y0, S, S);
-    ctx.strokeStyle = C.muted; ctx.lineWidth = 0.7;
-    if (this.edge.length < 6000) for (const [x, y, s] of this.edge) ctx.strokeRect(x0 + (x + 1) * k, y0 + (y + 1) * k, s * k, s * k);
+    if (this.depth <= this.PIC){ ctx.strokeStyle = C.muted; ctx.lineWidth = 0.7; for (const [x, y, s] of this.edge) ctx.strokeRect(x0 + (x + 1) * k, y0 + (y + 1) * k, s * k, s * k); }
     ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x0 + k, y0 + k, k, 0, 7); ctx.stroke();
-    const a = -Math.PI / 5, ux = Math.cos(a), uy = Math.sin(a), px = x0 + k + ux * k, py = y0 + k + uy * k, r = 42;
-    const L1 = { x: 268, y: 50 }, L2 = { x: 268, y: 180 }, cells = (c, m) => this.cells(c, m, ux, uy, r / m / k * 1.2);
-    if (this.depth >= 5) lens(ctx, L1.x, L1.y, r, 10, px, py, cells);
-    if (this.depth >= 10) lens(ctx, L2.x, L2.y, r, 100, px, py, cells, { x: L1.x, y: L1.y, r: r / 10 });
+    const r = 28; let from = { x: x0 + k + Math.cos(a) * k, y: y0 + k + Math.sin(a) * k };
+    for (const [lx, ly, M, at] of this.LENSES){
+      if (this.depth < at) break;
+      this.lensCells(ctx, lx, ly, r, M);
+      ctx.strokeStyle = C.fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, ly, r, 0, 7); ctx.stroke();
+      const fr = r / 10;   // the source circle: this lens shows a region ten times smaller than the previous one
+      ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(from.x, from.y, fr, 0, 7); ctx.stroke();
+      const dd = Math.hypot(lx - from.x, ly - from.y); ctx.beginPath(); ctx.moveTo(from.x + fr * (lx - from.x) / dd, from.y + fr * (ly - from.y) / dd); ctx.lineTo(lx - r * (lx - from.x) / dd, ly - r * (ly - from.y) / dd); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = C.muted; ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×' + big(M), lx, ly + r + 11);
+      from = { x: lx, y: ly };
+    }
   },
   readout(){ return between(this.inside, this.inside + this.edgeArea); },
-  sub(){ return `depth ${this.depth}: ${big(this.edge.length)} squares on the edge`; }
+  sub(){ return `depth ${this.depth}: ${big(this.edgeCount)} squares on the edge`; }
 });
 
 // 3. Archimedes' polygons
@@ -196,6 +235,7 @@ EXPS.push({
   blurb: 'A regular polygon inside the circle is shorter than the circle; one outside is longer. More sides, tighter squeeze. Archimedes stopped at 96 sides and got 3.1408 < π < 3.1429. The magnifier keeps the gap visible.',
   range: { label: 'sides', min: 3, max: 300, get(){ return this.n; }, set(v){ this.n = v; } },
   reset(){ this.n = 3; this.acc = 0; },
+  done(){ return this.n >= 300; },
   step(dt){ if (this.n >= 300) return; this.acc += dt; const per = this.n < 12 ? 0.6 : this.n < 40 ? 0.25 : 0.05; if (this.acc > per){ this.acc = 0; this.n++; } },
   geometry(ctx, mag){
     const n = this.n, cx = 118, cy = H / 2, R = 92, Ro = R / Math.cos(Math.PI / n);
@@ -287,6 +327,7 @@ EXPS.push({
     }
     this.T = T; this.XS = XS; this.XB = XB; this.VS = VS; this.VB = VB; this.N = T.length - 1; this.t = 0; this.i = 0; this.end = T[this.N] + 1.2;
   },
+  done(){ return this.t >= this.end; },
   step(dt){ this.t = Math.min(this.end, this.t + dt * this.SPEED); while (this.i < this.N && this.T[this.i + 1] <= this.t) this.i++; },
   draw(ctx){
     clear(ctx);
@@ -312,6 +353,7 @@ EXPS.push({
   start(){ const N = this.LEVELS[this.li]; this.N = N; this.row = 1; this.cop = 0; this.cnt = 0; this.oc = document.createElement('canvas'); this.oc.width = N; this.oc.height = N; this.ox = this.oc.getContext('2d'); this.img = this.ox.createImageData(N, 1); this.hold = 0; this.rgb = this.parse(C.accent); this.rgb2 = this.parse(C.bg); },
   parse(col){ const c = document.createElement('canvas').getContext('2d'); c.fillStyle = col; const s = c.fillStyle; return [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)]; },
   onTheme(){ this.start(); },
+  done(){ return this.row > this.N && this.li === this.LEVELS.length - 1; },
   gcd(a, b){ while (b){ const t = a % b; a = b; b = t; } return a; },
   step(dt){
     const N = this.N;
@@ -340,6 +382,7 @@ EXPS.push({
   reset(){ this.n = 0; this.sum = 0; this.acc = 0; },
   setN(n){ this.n = 0; this.sum = 0; this.acc = 0; this.add(n); },
   add(k){ for (let i = 0; i < k; i++){ this.n++; this.sum += 1 / (this.n * this.n); } },
+  done(){ return this.n >= 1e6; },
   step(dt){ if (this.n >= 1e6) return; if (this.n < 10){ this.acc += dt; if (this.acc > 0.5){ this.acc = 0; this.add(1); } return; } this.add(Math.max(1, Math.ceil(this.n / 150))); },
   draw(ctx){
     clear(ctx);
@@ -365,6 +408,7 @@ EXPS.push({
   range: { label: 'terms', min: logSlider.min, max: logSlider.max, get(){ return logSlider.fromN(this.k); }, set(v){ this.setK(logSlider.toN(v)); } },
   reset(){ this.k = 0; this.s = 0; this.pts = []; this.next = 1; this.acc = 0; },
   setK(k){ this.reset(); this.add(k); },
+  done(){ return this.k >= 1e6; },
   add(k){ for (let i = 0; i < k; i++){ this.s += 4 * (this.k % 2 ? -1 : 1) / (2 * this.k + 1); this.k++; if (this.k >= this.next){ this.pts.push([this.s, this.k]); this.next = this.k < 40 ? this.k + 1 : Math.ceil(this.next * 1.1); } } },
   step(dt){ if (this.k >= 1e6) return; if (this.k < 8){ this.acc += dt; if (this.acc > 0.4){ this.acc = 0; this.add(1); } return; } this.add(Math.max(1, Math.ceil(this.k / 250))); },
   draw(ctx){
@@ -406,6 +450,7 @@ EXPS.push({
     }
   },
   px(re, im){ return [(re - this.RE0) / this.SC, (im - this.IM0) / this.SC]; },
+  done(){ return this.gone; },
   step(){
     if (this.row < 2 * H){ this.render(24); return; }
     if (this.gone) return;
@@ -436,17 +481,20 @@ EXPS.push({
 const grid = document.getElementById('grid');
 const PLAY = '▶', PAUSE = '❚❚';
 function show(t){ t.est.innerHTML = t.exp.readout(); t.sub.textContent = t.exp.sub(); if (t.sync) t.sync(); }
+const finished = t => !!(t.exp.done && t.exp.done());
 function paint(t){
   t.exp.draw(t.ctx);
-  if (t.running) return;
+  if (t.running || finished(t)) return;
   const ctx = t.ctx, label = t.fresh ? 'tap to animate' : 'paused: tap to continue', w = 150;
   ctx.fillStyle = C.fg; ctx.globalAlpha = 0.78; ctx.beginPath(); ctx.roundRect(W / 2 - w / 2, H / 2 - 16, w, 32, 16); ctx.fill(); ctx.globalAlpha = 1;
   ctx.fillStyle = C.bg; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, W / 2, H / 2); ctx.textBaseline = 'alphabetic';
 }
-function setRunning(t, r){ t.running = r; t.play.textContent = r ? PAUSE : PLAY; if (r){ t.fresh = false; if (!t.played){ t.played = true; track('replay', { level: t.id }); } } paint(t); }
+function setRunning(t, r){
+  if (r && finished(t)){ t.exp.reset(); t.fresh = true; }   // play after the end starts over
+  t.running = r; t.play.textContent = r ? PAUSE : PLAY; if (r){ t.fresh = false; if (!t.played){ t.played = true; track('replay', { level: t.id }); } } paint(t); }
 const tiles = EXPS.map((exp, idx) => {
   const el = document.createElement('section'); el.className = 'tile';
-  el.innerHTML = `<h2>${exp.name} <small>${exp.hint}</small></h2><canvas width="${W * DPR}" height="${H * DPR}"></canvas><div class="est"></div><div class="sub"></div><div class="ctl"><button class="play">▶</button><button class="rst" title="Clear">clear</button></div><p class="blurb">${exp.blurb}</p>`;
+  el.innerHTML = `<h2>${exp.name} <small>${exp.hint}</small></h2><canvas width="${W * DPR}" height="${H * DPR}"></canvas><div class="est"></div><div class="sub"></div><div class="ctl"><button class="play">▶</button></div><p class="blurb">${exp.blurb}</p>`;
   grid.appendChild(el);
   const cv = el.querySelector('canvas'), ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
   const t = { exp, el, ctx, id: 'p' + (idx + 1), est: el.querySelector('.est'), sub: el.querySelector('.sub'), play: el.querySelector('.play'), running: false, fresh: true, visible: false, played: false };
@@ -466,7 +514,6 @@ const tiles = EXPS.map((exp, idx) => {
   }
   t.sync = () => syncs.forEach(f => f());
   t.play.addEventListener('click', () => setRunning(t, !t.running));
-  el.querySelector('.rst').addEventListener('click', () => { exp.reset(); t.fresh = true; setRunning(t, false); show(t); });
   cv.addEventListener('pointerdown', e => {
     if (!t.running){ setRunning(t, true); return; }
     if (exp.tap){ const b = cv.getBoundingClientRect(); exp.tap((e.clientX - b.left) / b.width * W, (e.clientY - b.top) / b.height * H); paint(t); show(t); }
@@ -482,7 +529,7 @@ tiles.forEach(t => io.observe(t.el));
 let last = performance.now();
 function frame(now){
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
-  for (const t of tiles){ if (!t.visible || !t.running) continue; t.exp.step(dt); paint(t); show(t); }
+  for (const t of tiles){ if (!t.visible || !t.running) continue; t.exp.step(dt); if (finished(t)) setRunning(t, false); else paint(t); show(t); }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
