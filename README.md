@@ -17,9 +17,9 @@ Small puzzle games with a bit of maths behind them, deployed together as one Ver
   `DESIGN.md` has the theorem and the design, `solve.py` a Python prototype of the solver.
 - `pi/`: **Where π hides**. Ten small experiments where π turns up: a rolling wheel, Archimedes'
   polygons, squares filling a circle, darts, Buffon's needle, Galperin's bouncing blocks, coprime
-  pairs, the Basel sum, the Leibniz series and the Mandelbrot neck. `index.html` is the whole page.
+  pairs, the Basel sum, the Leibniz series, the Mandelbrot neck and a pendulum. `index.html` is the whole page.
   Counters: a `start` per page view (level `p0`) and a `replay` the first time a tile is animated
-  (level `p1`..`p10`, the tile's number).
+  (level `p1`..`p11`, the tile's number).
 - `api/`: four small Vercel functions shared by the games: likes, feedback, gameplay counters,
   stats. They take a `game` field (`mouse` by default, `square` or `pi`); the mouse keeps its original
   Redis keys, other games get a `:game` suffix. `lib/kv.js` talks to the Redis store.

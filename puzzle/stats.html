@@ -100,7 +100,7 @@ function square(d) {
   out.push('<h3>Feedback</h3>' + feedbackHtml(d.feedback, l => l));
   return out.join('');
 }
-const PI_TILES = { p1: 'Rolling wheel', p2: 'Squares in a circle', p3: "Archimedes' polygons", p4: 'Darts', p5: "Buffon's needle", p6: 'Bouncing blocks', p7: 'Coprime pairs', p8: 'Shrinking squares', p9: 'Leibniz zigzag', p10: 'Mandelbrot neck' };
+const PI_TILES = { p1: 'Rolling wheel', p2: 'Squares in a circle', p3: "Archimedes' polygons", p4: 'Darts', p5: "Buffon's needle", p6: 'Bouncing blocks', p7: 'Coprime pairs', p8: 'Shrinking squares', p9: 'Leibniz zigzag', p10: 'Mandelbrot neck', p11: 'Pendulum clock' };
 function pi(d) {
   // 'start' with level p0 is a page view; 'replay' with level p1..p10 is a tile's first animation in that view.
   const ev = d.events, out = [], views = sum(ev.start), plays = sum(ev.replay);

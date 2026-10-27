@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Where π hides</title>
-<meta name="description" content="Ten small experiments where the number π turns up uninvited.">
+<meta name="description" content="Eleven small experiments where the number π turns up uninvited.">
 <link rel="icon" href="../mouse/favicon.png" sizes="64x64" type="image/png">
 <meta name="theme-color" content="#f6e7c8">
 <style>
@@ -51,7 +51,7 @@ textarea{font:inherit;width:100%;padding:8px;border:2px solid var(--card-border)
 <body>
 <div class="wrap">
   <h1>Where π hides</h1>
-  <p class="tag">Ten small experiments where π turns up uninvited. Digits in orange are the ones already right.</p>
+  <p class="tag">Eleven small experiments where π turns up uninvited. Digits in orange are the ones already right.</p>
   <div class="grid" id="grid"></div>
   <div class="row">
     <button class="btn" id="btnLike"><span id="likeHeart">🤍</span> <span id="likeLabel">Like</span><span id="likeCount"></span></button>
@@ -478,6 +478,51 @@ EXPS.push({
   },
   readout(){ return digits(this.n * this.eps, Math.round(-Math.log10(this.eps))); },
   sub(){ return `${big(this.n)} steps × ${this.eps}${this.gone ? ', escaped' : ''}`; }
+});
+
+// 11. Pendulum. A 1 m pendulum at g = 9.80665, integrated properly (RK4), timing its half swings through the bottom.
+// Half swing × √(g/L) → π as the swing shrinks: the textbook period 2π√(L/g) holds only for small swings.
+EXPS.push({
+  name: 'Pendulum clock', hint: 'a metre of string, a second a swing',
+  blurb: 'A pendulum one metre long swings through the bottom about once a second. Time a half swing, multiply by √(g/L) with g = 9.81, and out comes π: the period is 2π√(L/g). Only for small swings, though: wide ones are slower. Shrink the swing and watch the digits lock in. The metre was once proposed as the length of exactly this pendulum, which is why g ≈ π².',
+  L: 1, G: 9.80665, SPEED: 1.5, DT: 0.0005, MIN: 0.09,
+  range: { label: 'swing', min: 0, max: 300, get(){ return Math.round(-100 * Math.log10(this.amp / 90)); }, set(v){ this.start(90 * 10 ** (-v / 100)); } },
+  reset(){ this.start(90); },
+  start(amp){ this.amp = amp; this.th = amp * Math.PI / 180; this.om = 0; this.t = 0; this.lastCross = null; this.crossings = 0; this.half = null; this.trail = []; },
+  done(){ return this.amp <= this.MIN * 1.001 && this.half !== null; },
+  acc(th){ return -this.G / this.L * Math.sin(th); },
+  rk4(h){   // one step of the real equation of motion θ'' = -(g/L) sin θ
+    const th = this.th, om = this.om, a1 = this.acc(th), k1t = om, k2t = om + a1 * h / 2, a2 = this.acc(th + k1t * h / 2), k3t = om + a2 * h / 2, a3 = this.acc(th + k2t * h / 2), k4t = om + a3 * h, a4 = this.acc(th + k3t * h);
+    this.th = th + h * (k1t + 2 * k2t + 2 * k3t + k4t) / 6; this.om = om + h * (a1 + 2 * a2 + 2 * a3 + a4) / 6;
+  },
+  step(dt){
+    if (this.done()) return;
+    let left = dt * this.SPEED;
+    while (left > 0){
+      const h = Math.min(this.DT, left); left -= h; const th0 = this.th; this.rk4(h); this.t += h;
+      if ((th0 > 0) !== (this.th > 0)){   // through the bottom: interpolate the crossing time
+        const tc = this.t - h * this.th / (this.th - th0);
+        if (this.lastCross !== null){ this.half = tc - this.lastCross; this.crossings++; }
+        this.lastCross = tc;
+        if (this.crossings >= 1 && this.amp > this.MIN * 1.001){ const keep = this.half; this.start(Math.max(this.MIN, this.amp * 10 ** -0.2)); this.half = keep; break; }   // next, smaller swing (keeps the reading)
+      }
+    }
+  },
+  draw(ctx){
+    clear(ctx);
+    const px = W / 2, py = 26, R = 160, th = this.th, a0 = this.amp * Math.PI / 180;
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(px, py, R, Math.PI / 2 - a0, Math.PI / 2 + a0); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + R + 12); ctx.stroke();
+    const bx = px + R * Math.sin(th), by = py + R * Math.cos(th);
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.fillStyle = C.fg; ctx.beginPath(); ctx.arc(px, py, 4, 0, 7); ctx.fill();
+    ctx.fillStyle = C.accent; ctx.beginPath(); ctx.arc(bx, by, 11, 0, 7); ctx.fill(); ctx.strokeStyle = C.bg; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = C.fg; ctx.font = '700 22px system-ui'; ctx.textAlign = 'right'; ctx.fillText(this.half === null ? '…' : this.half.toFixed(4) + ' s', W - 10, 34);
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.fillText('half swing', W - 10, 50);
+    ctx.textAlign = 'left'; ctx.fillText(`swing ${this.amp >= 10 ? this.amp.toFixed(0) : this.amp >= 1 ? this.amp.toFixed(1) : this.amp.toFixed(2)}°`, 10, 34);
+  },
+  readout(){ return this.half === null ? '…' : digits(this.half * Math.sqrt(this.G / this.L)); },
+  sub(){ return this.half === null ? `timing a ${this.amp.toFixed(this.amp >= 10 ? 0 : 2)}° swing` : `${this.half.toFixed(4)} s × √(9.81 ÷ 1)`; }
 });
 
 // ---------- framework ----------
