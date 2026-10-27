@@ -199,7 +199,7 @@ EXPS.push({
   reset(){ this.n = 3; this.acc = 0; },
   done(){ return this.n >= 300; },
   step(dt){ if (this.done()) return; this.acc += dt; const per = this.n < 12 ? 0.6 : this.n < 40 ? 0.25 : 0.05; if (this.acc > per){ this.acc = 0; this.n++; } },
-  zoom(){ const n = this.n, gap = this.R * (1 / Math.cos(Math.PI / n) - Math.cos(Math.PI / n)); return Math.max(1, (20 / gap) ** 0.6); },   // lags the squeeze: the gap closes slowly on screen while more edges come into view
+  zoom(){ const n = this.n, gap = this.R * (1 / Math.cos(Math.PI / n) - Math.cos(Math.PI / n)); return Math.max(1, (20 / gap) ** 0.5); },   // lags the squeeze: the gap closes slowly on screen while more edges come into view
   draw(ctx){
     clear(ctx);
     const n = this.n, R = this.R, Z = this.zoom(), ux = Math.cos(this.A), uy = Math.sin(this.A), g = 1 - 1 / Z;
@@ -210,6 +210,8 @@ EXPS.push({
     for (let t = 0; t <= 160; t++){ const b = this.A - dl + 2 * dl * t / 160; ctx[t ? 'lineTo' : 'moveTo'](X(Math.cos(b)), Y(Math.sin(b))); }
     ctx.stroke();
     ctx.strokeStyle = C.accent; ctx.lineWidth = 2.5; ring(1, -Math.PI / 2);
+    ctx.fillStyle = C.accent;   // vertex dots, so the edges can be counted even when the gap has closed on screen
+    for (let k = 0; k < n; k++){ const a = -Math.PI / 2 + k * 2 * Math.PI / n, x = X(Math.cos(a)), y = Y(Math.sin(a)); if (x < -4 || x > W + 4 || y < -4 || y > H + 4) continue; ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); ctx.strokeStyle = C.bg; ctx.lineWidth = 1; ctx.stroke(); }
     if (Z > 1.02) zoomLabel(ctx, Z);
   },
   readout(){ const n = this.n; return between(n * Math.sin(Math.PI / n), n * Math.tan(Math.PI / n)); },
