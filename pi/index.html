@@ -34,6 +34,7 @@ input[type=range]{flex:1;min-width:80px;accent-color:var(--accent)}
 .blurb{color:var(--muted);font-size:.82rem;line-height:1.4;margin:8px 0 0}
 .foot{color:var(--muted);font-size:.85rem;margin-top:24px}
 .foot a{color:var(--accent)}
+@media (max-width:640px){ .tile h2 small,.sub,.blurb,.ctl label{font-size:.95rem} button,select{font-size:.95rem} .est{font-size:1.45rem} }
 .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;margin-top:18px}
 .btn{font:inherit;font-weight:800;font-size:1rem;color:var(--fg);background:var(--card);border:2px solid var(--card-border);border-radius:12px;padding:.4em .9em;cursor:pointer}
 .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -90,14 +91,15 @@ function offscreen(w, h, dpr = DPR){ const c = document.createElement('canvas');
 function clear(ctx){ ctx.clearRect(0, 0, W, H); }
 function fade(ox, a){ ox.globalCompositeOperation = 'destination-out'; ox.fillStyle = `rgba(0,0,0,${a})`; ox.fillRect(0, 0, W, H); ox.globalCompositeOperation = 'source-over'; }
 // A magnifier: shows the main drawing around (px,py) at mag× inside a circle at (cx,cy).
-function lens(ctx, cx, cy, r, mag, px, py, drawFn){
+function lens(ctx, cx, cy, r, mag, px, py, drawFn, from){
   ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.clip();
   ctx.fillStyle = C.bg; ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
   ctx.translate(cx, cy); ctx.scale(mag, mag); ctx.translate(-px, -py);
   drawFn(ctx, mag); ctx.restore();
   ctx.strokeStyle = C.fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
-  ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(px, py, 6, 0, 7); ctx.stroke();
-  const d = Math.hypot(cx - px, cy - py); if (d > r + 8){ ctx.beginPath(); ctx.moveTo(px + 6 * (cx - px) / d, py + 6 * (cy - py) / d); ctx.lineTo(cx - r * (cx - px) / d, cy - r * (cy - py) / d); ctx.stroke(); }
+  const f = from || { x: px, y: py, r: Math.max(2.5, r / mag) };   // the region the lens shows, drawn where it sits
+  ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.stroke();
+  const d = Math.hypot(cx - f.x, cy - f.y); if (d > r + f.r + 2){ ctx.beginPath(); ctx.moveTo(f.x + f.r * (cx - f.x) / d, f.y + f.r * (cy - f.y) / d); ctx.lineTo(cx - r * (cx - f.x) / d, cy - r * (cy - f.y) / d); ctx.stroke(); }
   ctx.setLineDash([]);
   ctx.fillStyle = C.muted; ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×' + (mag >= 10 ? Math.round(mag) : mag.toFixed(1)), cx, cy + r + 13);
 }
@@ -110,6 +112,7 @@ const EXPS = [];
 EXPS.push({
   name: 'Rolling wheel', hint: 'one turn of a wheel of diameter 1',
   blurb: 'A wheel of diameter 1 makes one full turn along a ruler. The distance it rolls is its circumference: π, by definition. Not a discovery, just the starting point.',
+  range: { label: 'rolled', min: 0, max: 1000, get(){ return Math.round(this.theta / (2 * Math.PI) * 1000); }, set(v){ this.theta = v / 1000 * 2 * Math.PI; } },
   reset(){ this.theta = 0; },
   step(dt){ this.theta = Math.min(2 * Math.PI, this.theta + dt * Math.PI / 2); },
   draw(ctx){
@@ -133,37 +136,10 @@ EXPS.push({
   sub(){ return `${Math.round(this.theta / (2 * Math.PI) * 360)}° of one turn`; }
 });
 
-// 2. Archimedes' polygons
-EXPS.push({
-  name: "Archimedes' polygons", hint: 'squeezed between two n-gons',
-  blurb: 'A regular polygon inside the circle is shorter than the circle; one outside is longer. More sides, tighter squeeze. Archimedes stopped at 96 sides and got 3.1408 < π < 3.1429. The magnifier keeps the gap visible.',
-  range: { label: 'sides', min: 3, max: 300, get(){ return this.n; }, set(v){ this.n = v; } },
-  reset(){ this.n = 3; this.acc = 0; },
-  step(dt){ if (this.n >= 300) return; this.acc += dt; const per = this.n < 12 ? 0.6 : this.n < 40 ? 0.25 : 0.05; if (this.acc > per){ this.acc = 0; this.n++; } },
-  geometry(ctx, mag){
-    const n = this.n, cx = 118, cy = H / 2, R = 92, Ro = R / Math.cos(Math.PI / n);
-    ctx.strokeStyle = C.muted; ctx.lineWidth = 1.5 / mag; ctx.setLineDash([4 / mag, 4 / mag]); ctx.beginPath();
-    for (let k = 0; k <= n; k++){ const a = -Math.PI / 2 + Math.PI / n + k * 2 * Math.PI / n; ctx[k ? 'lineTo' : 'moveTo'](cx + Ro * Math.cos(a), cy + Ro * Math.sin(a)); }
-    ctx.stroke(); ctx.setLineDash([]);
-    ctx.strokeStyle = C.fg; ctx.lineWidth = 2 / mag; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
-    ctx.strokeStyle = C.accent; ctx.lineWidth = 2.5 / mag; ctx.beginPath();
-    for (let k = 0; k <= n; k++){ const a = -Math.PI / 2 + k * 2 * Math.PI / n; ctx[k ? 'lineTo' : 'moveTo'](cx + R * Math.cos(a), cy + R * Math.sin(a)); }
-    ctx.stroke();
-  },
-  draw(ctx){
-    clear(ctx); this.geometry(ctx, 1);
-    const n = this.n, R = 92, gap = R * (1 / Math.cos(Math.PI / n) - Math.cos(Math.PI / n));
-    const mag = clamp(28 / gap, 1, 5000), a = -Math.PI / 5;
-    lens(ctx, 262, 182, 46, mag, 118 + R * Math.cos(a), H / 2 + R * Math.sin(a), (c, m) => this.geometry(c, m));
-  },
-  readout(){ const n = this.n; return between(n * Math.sin(Math.PI / n), n * Math.tan(Math.PI / n)); },
-  sub(){ return `${this.n} sides: half the inner and outer perimeter`; }
-});
-
-// 3. Quadtree squares
+// 2. Quadtree squares
 EXPS.push({
   name: 'Squares in a circle', hint: 'ever smaller squares',
-  blurb: 'Start with one big square around the unit circle. Keep squares that lie fully inside, throw away those fully outside, and split the ones on the edge into four. The area kept creeps up to π; kept plus edge squares comes down to it.',
+  blurb: 'Start with one big square around the unit circle. Keep squares that lie fully inside, throw away those fully outside, and split the ones on the edge into four. The area kept creeps up to π; kept plus edge squares comes down to it. From depth 5 a 10× magnifier shows the edge, from depth 10 a 100× one.',
   S: 200, X0: 12, MAX: 11,
   range: { label: 'depth', min: 0, max: 11, get(){ return this.depth; }, set(v){ this.build(v); } },
   reset(){ this.build(0); },
@@ -205,12 +181,40 @@ EXPS.push({
     ctx.strokeStyle = C.muted; ctx.lineWidth = 0.7;
     if (this.edge.length < 6000) for (const [x, y, s] of this.edge) ctx.strokeRect(x0 + (x + 1) * k, y0 + (y + 1) * k, s * k, s * k);
     ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x0 + k, y0 + k, k, 0, 7); ctx.stroke();
-    const cell = 2 / 2 ** this.depth * k, mag = clamp(12 / cell, 1, 400), a = -Math.PI / 5, r = 46;
-    const ux = Math.cos(a), uy = Math.sin(a);
-    lens(ctx, 262, 182, r, mag, x0 + k + ux * k, y0 + k + uy * k, (c, m) => this.cells(c, m, ux, uy, r / m / k * 1.2));
+    const a = -Math.PI / 5, ux = Math.cos(a), uy = Math.sin(a), px = x0 + k + ux * k, py = y0 + k + uy * k, r = 42;
+    const L1 = { x: 268, y: 50 }, L2 = { x: 268, y: 180 }, cells = (c, m) => this.cells(c, m, ux, uy, r / m / k * 1.2);
+    if (this.depth >= 5) lens(ctx, L1.x, L1.y, r, 10, px, py, cells);
+    if (this.depth >= 10) lens(ctx, L2.x, L2.y, r, 100, px, py, cells, { x: L1.x, y: L1.y, r: r / 10 });
   },
   readout(){ return between(this.inside, this.inside + this.edgeArea); },
   sub(){ return `depth ${this.depth}: ${big(this.edge.length)} squares on the edge`; }
+});
+
+// 3. Archimedes' polygons
+EXPS.push({
+  name: "Archimedes' polygons", hint: 'squeezed between two n-gons',
+  blurb: 'A regular polygon inside the circle is shorter than the circle; one outside is longer. More sides, tighter squeeze. Archimedes stopped at 96 sides and got 3.1408 < π < 3.1429. The magnifier keeps the gap visible.',
+  range: { label: 'sides', min: 3, max: 300, get(){ return this.n; }, set(v){ this.n = v; } },
+  reset(){ this.n = 3; this.acc = 0; },
+  step(dt){ if (this.n >= 300) return; this.acc += dt; const per = this.n < 12 ? 0.6 : this.n < 40 ? 0.25 : 0.05; if (this.acc > per){ this.acc = 0; this.n++; } },
+  geometry(ctx, mag){
+    const n = this.n, cx = 118, cy = H / 2, R = 92, Ro = R / Math.cos(Math.PI / n);
+    ctx.strokeStyle = C.muted; ctx.lineWidth = 1.5 / mag; ctx.setLineDash([4 / mag, 4 / mag]); ctx.beginPath();
+    for (let k = 0; k <= n; k++){ const a = -Math.PI / 2 + Math.PI / n + k * 2 * Math.PI / n; ctx[k ? 'lineTo' : 'moveTo'](cx + Ro * Math.cos(a), cy + Ro * Math.sin(a)); }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 2 / mag; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 2.5 / mag; ctx.beginPath();
+    for (let k = 0; k <= n; k++){ const a = -Math.PI / 2 + k * 2 * Math.PI / n; ctx[k ? 'lineTo' : 'moveTo'](cx + R * Math.cos(a), cy + R * Math.sin(a)); }
+    ctx.stroke();
+  },
+  draw(ctx){
+    clear(ctx); this.geometry(ctx, 1);
+    const n = this.n, R = 92, gap = R * (1 / Math.cos(Math.PI / n) - Math.cos(Math.PI / n));
+    const mag = clamp(28 / gap, 1, 5000), a = -Math.PI / 5;
+    lens(ctx, 262, 176, 44, mag, 118 + R * Math.cos(a), H / 2 + R * Math.sin(a), (c, m) => this.geometry(c, m));
+  },
+  readout(){ const n = this.n; return between(n * Math.sin(Math.PI / n), n * Math.tan(Math.PI / n)); },
+  sub(){ return `${this.n} sides: half the inner and outer perimeter`; }
 });
 
 // 4. Darts
