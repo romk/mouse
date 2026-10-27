@@ -110,7 +110,7 @@ function lensFrame(ctx, lx, ly, r, M, from){
   const path = () => { ctx.beginPath(); ctx.arc(from.x, from.y, fr, 0, 7); ctx.moveTo(from.x + fr * (lx - from.x) / dd, from.y + fr * (ly - from.y) / dd); ctx.lineTo(lx - r * (lx - from.x) / dd, ly - r * (ly - from.y) / dd); };
   path(); ctx.strokeStyle = C.bg; ctx.lineWidth = 3.5; ctx.stroke();   // light halo so the marker shows on orange and on dark
   path(); ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = C.muted; ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×' + big(M), lx, ly + r + 11);
+  ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.strokeStyle = C.bg; ctx.lineWidth = 3; ctx.strokeText('×' + big(M), lx, ly + r + 11); ctx.fillStyle = C.muted; ctx.fillText('×' + big(M), lx, ly + r + 11);
 }
 const logSlider = { min: 0, max: 600, toN: v => Math.round(10 ** (v / 100)), fromN: n => Math.round(100 * Math.log10(Math.max(1, n))) };
 
