@@ -262,50 +262,41 @@ EXPS.push({
 });
 
 // 4. Darts. Dart number i is a pure function of (seed, i): an integer mixing hash gives it a position, so nothing is stored
-// and any dart can be recomputed. Only the darts that fell near the rim point are remembered, for the magnifiers.
-// A new seed every run, so the magnified view is different each time.
+// and any dart can be recomputed. The view zooms in on one point of the rim as darts pile up, zoom ∝ √darts, so the number
+// of darts in view stays about the same. Only darts that fell inside the view region at the time are remembered.
 EXPS.push({
   name: 'Darts', hint: 'random points, circle in a square',
-  blurb: 'Throw darts at random into a square with a circle inside. The share that lands in the circle is its area over the square\'s: π/4. Slow and noisy: a hundred times the darts buys you one more digit. Tap to throw 200 more. Magnifiers open on the rim at 1 000 and 10 000 darts.',
-  S: 200, X0: 10, MAX: 1e6, A: -Math.PI / 5, LENSES: [[268, 50, 10, 1000], [268, 180, 100, 10000]], R: 42,
+  blurb: 'Throw darts at random into a square with a circle inside. The share that lands in the circle is its area over the square\'s: π/4. Slow and noisy: a hundred times the darts buys you one more digit. Tap to throw 200 more. Past 2 000 darts the view zooms in on the rim to keep up.',
+  S: 200, MAX: 1e6, A: -Math.PI / 5, N0: 2000,
   range: { label: 'darts', min: 0, max: 600, get(){ return this.n ? logSlider.fromN(this.n) : 0; }, set(v){ this.setN(v ? logSlider.toN(v) : 0); } },
-  reset(){
-    this.seed = (Math.random() * 4294967296) >>> 0; this.n = 0; this.inside = 0; this.near = [];
-    this.px = this.S * DPR; this.oc = document.createElement('canvas'); this.oc.width = this.oc.height = this.px; this.ox = this.oc.getContext('2d'); this.img = this.ox.createImageData(this.px, this.px);
-    this.parse = col => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = col; const h = c.fillStyle; return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; };
-    this.cIn = this.parse(C.accent); this.cOut = this.parse(C.muted); this.ru = this.R / (this.S / 2 * 10) * 1.3;   // the 10× lens region, in unit coordinates
-  },
+  reset(){ this.seed = (Math.random() * 4294967296) >>> 0; this.n = 0; this.inside = 0; this.near = []; this.ux = Math.cos(this.A); this.uy = Math.sin(this.A); },
   hash(i){ let h = Math.imul(i ^ this.seed, 0x9E3779B1); h ^= h >>> 15; h = Math.imul(h, 0x85EBCA77); h ^= h >>> 13; h = Math.imul(h, 0xC2B2AE3D); h ^= h >>> 16; return (h >>> 0) / 4294967296; },
   dart(i){ return [this.hash(2 * i) * 2 - 1, this.hash(2 * i + 1) * 2 - 1]; },
-  plot(x, y, inn){ const p = this.px, d = this.img.data, c = inn ? this.cIn : this.cOut, X = Math.min(p - 2, Math.floor((x + 1) / 2 * p)), Y = Math.min(p - 2, Math.floor((y + 1) / 2 * p));
-    for (const [a, b] of [[X, Y], [X + 1, Y], [X, Y + 1], [X + 1, Y + 1]]){ const o = (b * p + a) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; } },
-  add(N){   // darts n..N-1
-    const ux = Math.cos(this.A), uy = Math.sin(this.A), ru = this.ru;
-    for (let i = this.n; i < N; i++){ const [x, y] = this.dart(i), inn = x * x + y * y <= 1; if (inn) this.inside++; this.plot(x, y, inn); if (Math.abs(x - ux) < ru && Math.abs(y - uy) < ru) this.near.push(i); }
-    this.n = N; this.ox.putImageData(this.img, 0, 0);
+  zoom(n){ return Math.max(1, Math.sqrt(n / this.N0)); },
+  centre(Z){ const f = 1 - 1 / Z; return [this.ux * f, this.uy * f]; },   // from the circle's centre at zoom 1 towards the rim point
+  region(n){ const Z = this.zoom(n), [cx, cy] = this.centre(Z), r = 1.7 / Z; return [cx, cy, r]; },   // what the view can show at n darts, with margin
+  add(N){
+    let [cx, cy, r] = this.region(this.n);
+    for (let i = this.n; i < N; i++){
+      if ((i & 255) === 0) [cx, cy, r] = this.region(i);
+      const [x, y] = this.dart(i); if (x * x + y * y <= 1) this.inside++;
+      if (Math.abs(x - cx) < r && Math.abs(y - cy) < r) this.near.push(i);
+    }
+    this.n = N;
+    if (this.near.length > 40000){ const [qx, qy, qr] = this.region(N); this.near = this.near.filter(i => { const [x, y] = this.dart(i); return Math.abs(x - qx) < qr && Math.abs(y - qy) < qr; }); }
   },
-  setN(N){ N = Math.min(N, this.MAX); if (N < this.n){ this.n = 0; this.inside = 0; this.near = []; this.img.data.fill(0); } this.add(N); },
+  setN(N){ N = Math.min(N, this.MAX); if (N < this.n){ this.n = 0; this.inside = 0; this.near = []; } this.add(N); },
   throw(k){ this.add(Math.min(this.MAX, this.n + k)); },
-  onTheme(){ this.cIn = this.parse(C.accent); this.cOut = this.parse(C.muted); const n = this.n; this.setN(0); this.setN(n); },
   tap(){ this.throw(200); },
   done(){ return this.n >= this.MAX; },
   step(){ this.throw(this.n < 2000 ? 10 : this.n < 20000 ? 60 : this.n < 200000 ? 400 : 2000); },
-  lensDarts(ctx, cx, cy, r, M){
-    const k = this.S / 2, a = this.A, ux = Math.cos(a), uy = Math.sin(a), f = k * M, lim = r + 2;
-    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.clip();
-    ctx.fillStyle = C.bg; ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
-    const da = Math.min(Math.PI, r / f * 2.4); ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.beginPath();
-    for (let t = 0; t <= 32; t++){ const b = a - da + 2 * da * t / 32; ctx[t ? 'lineTo' : 'moveTo'](cx + (Math.cos(b) - ux) * f, cy + (Math.sin(b) - uy) * f); }
-    ctx.stroke();
-    for (const i of this.near){ const [x, y] = this.dart(i), dx = (x - ux) * f, dy = (y - uy) * f; if (dx < -lim || dx > lim || dy < -lim || dy > lim) continue; ctx.fillStyle = x * x + y * y <= 1 ? C.accent : C.muted; ctx.beginPath(); ctx.arc(cx + dx, cy + dy, 1.8, 0, 7); ctx.fill(); }
-    ctx.restore();
-  },
   draw(ctx){
-    clear(ctx); const S = this.S, x0 = this.X0, y0 = (H - S) / 2, k = S / 2, a = this.A;
-    ctx.drawImage(this.oc, x0, y0, S, S);
-    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.strokeRect(x0, y0, S, S); ctx.beginPath(); ctx.arc(x0 + k, y0 + k, k, 0, 7); ctx.stroke();
-    const r = this.R; let from = { x: x0 + k + Math.cos(a) * k, y: y0 + k + Math.sin(a) * k };
-    for (const [lx, ly, M, at] of this.LENSES){ if (this.n < at) break; this.lensDarts(ctx, lx, ly, r, M); lensFrame(ctx, lx, ly, r, M, from); from = { x: lx, y: ly }; }
+    clear(ctx);
+    const k = this.S / 2, Z = this.zoom(this.n), [cx, cy] = this.centre(Z), f = k * Z, X = x => W / 2 + (x - cx) * f, Y = y => H / 2 + (y - cy) * f;
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.strokeRect(X(-1), Y(-1), 2 * f, 2 * f); ctx.beginPath(); ctx.arc(X(0), Y(0), f, 0, 7); ctx.stroke();
+    const lim = 2, d = 1.5;
+    for (const i of this.near){ const [x, y] = this.dart(i), px = X(x), py = Y(y); if (px < -lim || px > W + lim || py < -lim || py > H + lim) continue; ctx.fillStyle = x * x + y * y <= 1 ? C.accent : C.muted; ctx.fillRect(px - d / 2, py - d / 2, d, d); }
+    if (Z > 1.02){ ctx.font = '11px system-ui'; ctx.textAlign = 'right'; ctx.lineJoin = 'round'; ctx.strokeStyle = C.bg; ctx.lineWidth = 3; ctx.strokeText('×' + Z.toFixed(1), W - 8, H - 8); ctx.fillStyle = C.muted; ctx.fillText('×' + Z.toFixed(1), W - 8, H - 8); }
   },
   readout(){ return digits(4 * this.inside / this.n); },
   sub(){ return `${big(this.n)} darts, ${big(this.inside)} in the circle, × 4`; }
@@ -414,29 +405,39 @@ EXPS.push({
   sub(){ return `pairs up to ${big(this.N)}: ${big(this.cop)} of ${big(this.cnt)} coprime, √(6 ÷ share)`; }
 });
 
-// 8. Basel stack
+// 8. Basel stack. The camera follows the newest square: it is drawn at a fixed size near the right, so the earlier,
+// larger squares slide off to the left. Harmonic numbers give the positions: square m starts at 1 + 1/2 + ... + 1/(m-1).
 EXPS.push({
   name: 'Shrinking squares', hint: '1 + ¼ + ⅑ + …',
-  blurb: 'Squares of side 1, ½, ⅓, ¼, … in a row. Their total area is 1 + 1/4 + 1/9 + … = π²/6 (Euler, 1734, the Basel problem). The filled square on the right has that total area; the dashed one is the target. Slow: the gap shrinks like 1/n.',
-  range: { label: 'squares', min: logSlider.min, max: logSlider.max, get(){ return logSlider.fromN(this.n); }, set(v){ this.setN(logSlider.toN(v)); } },
-  reset(){ this.n = 0; this.sum = 0; this.acc = 0; },
+  blurb: 'Squares of side 1, ½, ⅓, ¼, … in a row. Their total area is 1 + 1/4 + 1/9 + … = π²/6 (Euler, 1734, the Basel problem). The view zooms in on the newest square; the big ones slide off to the left. The filled square top right has the total area so far; the dashed one is the target.',
+  range: { label: 'squares', min: logSlider.min, max: logSlider.max, get(){ return logSlider.fromN(this.n); }, set(v){ this.setN(logSlider.toN(v)); this.f = Math.max(1, this.n); } },
+  SIDE: 60, RIGHT: 250, BASE: 200,
+  reset(){ this.n = 0; this.sum = 0; this.acc = 0; if (!this.HN){ this.HN = new Float64Array(4097); for (let m = 1; m <= 4096; m++) this.HN[m] = this.HN[m - 1] + 1 / m; } this.f = 1; },
+  H(m){ if (m > 4096) return Math.log(m) + 0.5772156649015329 + 1 / (2 * m) - 1 / (12 * m * m); const a = Math.floor(m), t = m - a; return t ? this.HN[a] * (1 - t) + this.HN[a + 1] * t : this.HN[a]; },
   setN(n){ this.n = 0; this.sum = 0; this.acc = 0; this.add(n); },
   add(k){ for (let i = 0; i < k; i++){ this.n++; this.sum += 1 / (this.n * this.n); } },
   done(){ return this.n >= 1e6; },
-  step(dt){ if (this.n >= 1e6) return; if (this.n < 10){ this.acc += dt; if (this.acc > 0.5){ this.acc = 0; this.add(1); } return; } this.add(Math.max(1, Math.ceil(this.n / 150))); },
+  step(dt){
+    if (!this.done()){ if (this.n < 10){ this.acc += dt; if (this.acc > 0.5){ this.acc = 0; this.add(1); } } else this.add(Math.max(1, Math.ceil(this.n / 150))); }
+    this.f += (Math.max(1, this.n) - this.f) * (1 - Math.exp(-dt * 8));   // the camera eases towards the newest square
+  },
   draw(ctx){
     clear(ctx);
-    // the row is 1 + 1/2 + 1/3 + ... wide, which keeps growing (slowly), so the scale shrinks to keep it inside the picture
-    const n = this.n, harm = n ? Math.log(n) + 0.5772 + 1 / (2 * n) : 1, S = Math.min(96, (W - 24) / harm), base = 200, x0 = 12;
-    ctx.fillStyle = C.accent; let x = x0;
-    for (let i = 1; i <= n; i++){ const s = S / i; if (s < 0.4) break; ctx.globalAlpha = i === 1 ? 1 : 0.85; ctx.fillRect(x, base - s, s, s); x += s + (s > 4 ? 1.5 : 0); }
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
-    if (n >= 1) ctx.fillText('1', x0 + S / 2, base + 16); if (n >= 2) ctx.fillText('½', x0 + S + 1.5 + S / 4, base + 16); if (n >= 3 && S > 60) ctx.fillText('⅓', x0 + S * 1.5 + 3 + S / 6, base + 16);
-    const U = 68, T = Math.sqrt(Math.PI * Math.PI / 6) * U, cx = W - 62, cy = 14 + T / 2, t = Math.sqrt(this.sum) * U;
-    ctx.strokeStyle = C.muted; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.strokeRect(cx - T / 2, cy - T / 2, T, T); ctx.setLineDash([]);
-    ctx.fillStyle = C.accent2; ctx.fillRect(cx - t / 2, cy - t / 2, t, t);
-    ctx.fillStyle = C.muted; ctx.fillText('area π²/6', cx, cy + T / 2 + 14);
+    const f = this.f, z = Math.max(96, this.SIDE * f), cx = this.H(f) - this.RIGHT / z, base = this.BASE, n = this.n;   // zoom: px per unit; cx: left edge of the view, in units
+    if (n){
+      const box = (m, right) => { const w = z / m, left = right - w; ctx.fillStyle = C.accent; ctx.globalAlpha = m === n ? 1 : 0.85; ctx.fillRect(left, base - w, w, w); ctx.globalAlpha = 1; if (w > 3){ ctx.strokeStyle = C.bg; ctx.lineWidth = 1; ctx.strokeRect(left, base - w, w, w); } return left; };
+      const m0 = Math.min(n, Math.max(1, Math.round(f)));
+      let right = (this.H(m0) - cx) * z;   // right edge of the focus square
+      for (let m = m0, guard = 0; m >= 1 && right > 0 && guard < 400; m--, guard++) right = box(m, right);
+      let left = (this.H(m0) - cx) * z;
+      for (let m = m0 + 1, guard = 0; m <= n && left < W && guard < 400; m++, guard++){ box(m, left + z / m); left += z / m; }
+      ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+      const lx = (this.H(m0) - cx) * z - z / m0 / 2; ctx.fillText(m0 === 1 ? '1' : m0 === 2 ? '½' : m0 === 3 ? '⅓' : '1/' + big(m0), Math.max(24, Math.min(W - 24, lx)), base + 16);
+    }
+    const U = 68, T = Math.sqrt(Math.PI * Math.PI / 6) * U, qx = W - 62, qy = 14 + T / 2, t = Math.sqrt(this.sum) * U;
+    ctx.strokeStyle = C.muted; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.strokeRect(qx - T / 2, qy - T / 2, T, T); ctx.setLineDash([]);
+    ctx.fillStyle = C.accent2; ctx.fillRect(qx - t / 2, qy - t / 2, t, t);
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('area π²/6', qx, qy + T / 2 + 14);
   },
   readout(){ return digits(Math.sqrt(6 * this.sum)); },
   sub(){ return `${big(this.n)} squares, area ${this.sum.toFixed(6)}, √(6 × area)`; }
