@@ -514,7 +514,7 @@ EXPS.push({
       }
     }
   },
-  zoom(){ return Math.max(1, (1 / Math.sin(this.amp * Math.PI / 180)) ** 0.8); },   // lags the shrinking swing: 110 px of travel at 9°, still 44 px at 0.09°
+  zoom(){ return Math.max(1, (Math.sin(20 * Math.PI / 180) / Math.sin(this.amp * Math.PI / 180)) ** 0.85); },   // no zoom above 20°, then it lags the shrinking swing: 55 px of travel at 20°, 41 px at 3°, 24 px at 0.09°
   draw(ctx){
     clear(ctx);
     const px = W / 2, py = 26, R = 160, th = this.th, a0 = this.amp * Math.PI / 180, Z = this.zoom(), ry = py + R;   // zoom about the bob's rest point
