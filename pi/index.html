@@ -103,6 +103,14 @@ function lens(ctx, cx, cy, r, mag, px, py, drawFn, from){
   ctx.setLineDash([]);
   ctx.fillStyle = C.muted; ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×' + (mag >= 10 ? Math.round(mag) : mag.toFixed(1)), cx, cy + r + 13);
 }
+// Rim, source circle (radius r/10: each lens shows a region ten times smaller than where it looks), dotted connector, label.
+function lensFrame(ctx, lx, ly, r, M, from){
+  ctx.strokeStyle = C.fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, ly, r, 0, 7); ctx.stroke();
+  const fr = r / 10, dd = Math.hypot(lx - from.x, ly - from.y);
+  ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(from.x, from.y, fr, 0, 7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(from.x + fr * (lx - from.x) / dd, from.y + fr * (ly - from.y) / dd); ctx.lineTo(lx - r * (lx - from.x) / dd, ly - r * (ly - from.y) / dd); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = C.muted; ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×' + big(M), lx, ly + r + 11);
+}
 const logSlider = { min: 0, max: 600, toN: v => Math.round(10 ** (v / 100)), fromN: n => Math.round(100 * Math.log10(Math.max(1, n))) };
 
 // ---------- experiments ----------
@@ -216,12 +224,7 @@ EXPS.push({
     const r = 28; let from = { x: x0 + k + Math.cos(a) * k, y: y0 + k + Math.sin(a) * k };
     for (const [lx, ly, M, at] of this.LENSES){
       if (this.depth < at) break;
-      this.lensCells(ctx, lx, ly, r, M);
-      ctx.strokeStyle = C.fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, ly, r, 0, 7); ctx.stroke();
-      const fr = r / 10;   // the source circle: this lens shows a region ten times smaller than the previous one
-      ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(from.x, from.y, fr, 0, 7); ctx.stroke();
-      const dd = Math.hypot(lx - from.x, ly - from.y); ctx.beginPath(); ctx.moveTo(from.x + fr * (lx - from.x) / dd, from.y + fr * (ly - from.y) / dd); ctx.lineTo(lx - r * (lx - from.x) / dd, ly - r * (ly - from.y) / dd); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = C.muted; ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.fillText('×' + big(M), lx, ly + r + 11);
+      this.lensCells(ctx, lx, ly, r, M); lensFrame(ctx, lx, ly, r, M, from);
       from = { x: lx, y: ly };
     }
   },
@@ -257,46 +260,63 @@ EXPS.push({
   sub(){ return `${this.n} sides: half the inner and outer perimeter`; }
 });
 
-// 4. Darts
+// 4. Darts. Every dart is kept, so the slider can go back and forth and the magnifiers can show the ones near the rim.
 EXPS.push({
   name: 'Darts', hint: 'random points, circle in a square',
-  blurb: 'Throw darts at random into a square with a circle inside. The share that lands in the circle is its area over the square\'s: π/4. Slow and noisy: a hundred times the darts buys you one more digit. Tap to throw 200 more.',
-  S: 236,
-  reset(){ this.n = 0; this.inside = 0; [this.oc, this.ox] = offscreen(this.S, this.S); },
-  throw(k){
-    const ox = this.ox, S = this.S;
-    for (let i = 0; i < k; i++){
-      const x = Math.random() * 2 - 1, y = Math.random() * 2 - 1, inn = x * x + y * y <= 1;
-      this.n++; if (inn) this.inside++;
-      ox.fillStyle = inn ? C.accent : C.muted; ox.fillRect((x + 1) / 2 * S - 0.75, (y + 1) / 2 * S - 0.75, 1.5, 1.5);
-    }
-  },
+  blurb: 'Throw darts at random into a square with a circle inside. The share that lands in the circle is its area over the square\'s: π/4. Slow and noisy: a hundred times the darts buys you one more digit. Tap to throw 200 more. Magnifiers open on the rim at 1 000 and 10 000 darts.',
+  S: 200, X0: 10, MAX: 1e5, A: -Math.PI / 5, LENSES: [[268, 50, 10, 1000], [268, 180, 100, 10000]],
+  range: { label: 'darts', min: 0, max: 500, get(){ return this.n ? logSlider.fromN(this.n) : 0; }, set(v){ this.setN(v ? logSlider.toN(v) : 0); } },
+  reset(){ this.xs = new Float32Array(this.MAX); this.ys = new Float32Array(this.MAX); this.inn = new Uint8Array(this.MAX); this.have = 0; this.n = 0; this.inside = 0; [this.oc, this.ox] = offscreen(this.S, this.S); },
+  gen(upto){ for (; this.have < upto; this.have++){ const x = Math.random() * 2 - 1, y = Math.random() * 2 - 1; this.xs[this.have] = x; this.ys[this.have] = y; this.inn[this.have] = x * x + y * y <= 1 ? 1 : 0; } },
+  plot(i){ const S = this.S; this.ox.fillStyle = this.inn[i] ? C.accent : C.muted; this.ox.fillRect((this.xs[i] + 1) / 2 * S - 0.75, (this.ys[i] + 1) / 2 * S - 0.75, 1.5, 1.5); },
+  setN(N){ N = Math.min(N, this.MAX); this.gen(N); this.ox.clearRect(0, 0, this.S, this.S); let c = 0; for (let i = 0; i < N; i++){ c += this.inn[i]; this.plot(i); } this.n = N; this.inside = c; },
+  throw(k){ const N = Math.min(this.MAX, this.n + k); this.gen(N); for (let i = this.n; i < N; i++){ this.inside += this.inn[i]; this.plot(i); } this.n = N; },
+  onTheme(){ this.setN(this.n); },
   tap(){ this.throw(200); },
-  step(){ this.throw(this.n < 2000 ? 10 : 60); },
+  done(){ return this.n >= this.MAX; },
+  step(){ this.throw(this.n < 2000 ? 10 : this.n < 20000 ? 60 : 200); },
+  lensDarts(ctx, cx, cy, r, M){
+    const k = this.S / 2, a = this.A, ux = Math.cos(a), uy = Math.sin(a), f = k * M, lim = r + 2;
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.clip();
+    ctx.fillStyle = C.bg; ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+    const da = Math.min(Math.PI, r / f * 2.4); ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let t = 0; t <= 32; t++){ const b = a - da + 2 * da * t / 32; ctx[t ? 'lineTo' : 'moveTo'](cx + (Math.cos(b) - ux) * f, cy + (Math.sin(b) - uy) * f); }
+    ctx.stroke();
+    for (let i = 0; i < this.n; i++){ const dx = (this.xs[i] - ux) * f, dy = (this.ys[i] - uy) * f; if (dx < -lim || dx > lim || dy < -lim || dy > lim) continue; ctx.fillStyle = this.inn[i] ? C.accent : C.muted; ctx.beginPath(); ctx.arc(cx + dx, cy + dy, 1.8, 0, 7); ctx.fill(); }
+    ctx.restore();
+  },
   draw(ctx){
-    clear(ctx); const S = this.S, x0 = (W - S) / 2, y0 = (H - S) / 2;
+    clear(ctx); const S = this.S, x0 = this.X0, y0 = (H - S) / 2, k = S / 2, a = this.A;
     ctx.drawImage(this.oc, x0, y0, S, S);
-    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.strokeRect(x0, y0, S, S); ctx.beginPath(); ctx.arc(W / 2, H / 2, S / 2, 0, 7); ctx.stroke();
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.strokeRect(x0, y0, S, S); ctx.beginPath(); ctx.arc(x0 + k, y0 + k, k, 0, 7); ctx.stroke();
+    const r = 42; let from = { x: x0 + k + Math.cos(a) * k, y: y0 + k + Math.sin(a) * k };
+    for (const [lx, ly, M, at] of this.LENSES){ if (this.n < at) break; this.lensDarts(ctx, lx, ly, r, M); lensFrame(ctx, lx, ly, r, M, from); from = { x: lx, y: ly }; }
   },
   readout(){ return digits(4 * this.inside / this.n); },
   sub(){ return `${big(this.n)} darts, ${big(this.inside)} in the circle, × 4`; }
 });
 
-// 5. Buffon's needle
+// 5. Buffon's needle. Needles are kept so the slider can move both ways; only the most recent ones stay drawn.
 EXPS.push({
   name: "Buffon's needle", hint: 'needles on a striped floor',
   blurb: 'Drop needles on a floor with stripes as wide as the needle is long. The chance a needle crosses a line is 2/π (Buffon, 1777). So π ≈ 2 × needles ÷ crossings. Tap the floor to drop one yourself.',
-  T: 40,
-  reset(){ this.n = 0; this.cross = 0; [this.oc, this.ox] = offscreen(W, H); },
-  drop(x, y, a){
-    const T = this.T, L = T, h = Math.abs(Math.sin(a)) * L / 2;
-    const c = Math.floor((y - h) / T) !== Math.floor((y + h) / T);
-    this.n++; if (c) this.cross++;
-    const ox = this.ox; ox.strokeStyle = c ? C.accent : C.fg; ox.lineWidth = c ? 2 : 1.2; ox.globalAlpha = c ? 0.9 : 0.55;
-    ox.beginPath(); ox.moveTo(x - Math.cos(a) * L / 2, y - h * Math.sign(Math.sin(a))); ox.lineTo(x + Math.cos(a) * L / 2, y + h * Math.sign(Math.sin(a))); ox.stroke(); ox.globalAlpha = 1;
+  T: 40, MAX: 1e5, KEEP: 1500,
+  range: { label: 'needles', min: 0, max: 500, get(){ return this.n ? logSlider.fromN(this.n) : 0; }, set(v){ this.setN(v ? logSlider.toN(v) : 0); } },
+  reset(){ this.xs = new Float32Array(this.MAX); this.ys = new Float32Array(this.MAX); this.as = new Float32Array(this.MAX); this.cr = new Uint8Array(this.MAX); this.have = 0; this.n = 0; this.cross = 0; [this.oc, this.ox] = offscreen(W, H); },
+  put(i, x, y, a){ const T = this.T, h = Math.abs(Math.sin(a)) * T / 2; this.xs[i] = x; this.ys[i] = y; this.as[i] = a; this.cr[i] = Math.floor((y - h) / T) !== Math.floor((y + h) / T) ? 1 : 0; },
+  gen(upto){ for (; this.have < upto; this.have++) this.put(this.have, rnd(0, W), rnd(0, H), Math.random() * Math.PI); },
+  plot(i, alpha = 1){
+    const ox = this.ox, L = this.T, a = this.as[i], x = this.xs[i], y = this.ys[i], c = this.cr[i], h = Math.abs(Math.sin(a)) * L / 2, sg = Math.sign(Math.sin(a));
+    ox.strokeStyle = c ? C.accent : C.fg; ox.lineWidth = c ? 2 : 1.2; ox.globalAlpha = (c ? 0.9 : 0.55) * alpha;
+    ox.beginPath(); ox.moveTo(x - Math.cos(a) * L / 2, y - h * sg); ox.lineTo(x + Math.cos(a) * L / 2, y + h * sg); ox.stroke(); ox.globalAlpha = 1;
   },
-  tap(x, y){ this.drop(x, y, Math.random() * Math.PI); },
-  step(){ const k = this.n < 300 ? 1 : this.n < 3000 ? 4 : 20; if (this.n > 400) fade(this.ox, 0.04); for (let i = 0; i < k; i++) this.drop(rnd(0, W), rnd(0, H), Math.random() * Math.PI); },
+  setN(N){ N = Math.min(N, this.MAX); this.gen(N); let c = 0; for (let i = 0; i < N; i++) c += this.cr[i]; this.n = N; this.cross = c;
+    this.ox.clearRect(0, 0, W, H); const from = Math.max(0, N - this.KEEP); for (let i = from; i < N; i++) this.plot(i, 0.15 + 0.85 * (i - from) / this.KEEP); },
+  add(k){ const N = Math.min(this.MAX, this.n + k); this.gen(N); for (let i = this.n; i < N; i++){ this.cross += this.cr[i]; this.plot(i); } this.n = N; },
+  onTheme(){ this.setN(this.n); },
+  tap(x, y){ if (this.n >= this.MAX) return; const i = this.n; this.put(i, x, y, Math.random() * Math.PI); this.have = i + 1; this.cross += this.cr[i]; this.plot(i); this.n = i + 1; },
+  done(){ return this.n >= this.MAX; },
+  step(){ const k = this.n < 300 ? 1 : this.n < 3000 ? 4 : this.n < 30000 ? 20 : 60; if (this.n > 400) fade(this.ox, 0.04); this.add(k); },
   draw(ctx){
     clear(ctx);
     ctx.strokeStyle = C.line; ctx.lineWidth = 1.5;
@@ -307,14 +327,16 @@ EXPS.push({
   sub(){ return `${big(this.n)} needles, ${big(this.cross)} crossing a line`; }
 });
 
-// 6. Bouncing blocks (real physical time, elastic collisions solved exactly)
+// 6. Bouncing blocks (real physical time, elastic collisions solved exactly). Blocks are drawn to scale as cubes:
+// side ∝ ∛mass, so the heavy block soon fills the right of the picture and only its face is seen.
 EXPS.push({
   name: 'Bouncing blocks', hint: 'count the clacks',
-  blurb: 'A big block slides into a small one, which bounces between it and a wall. Count every clack. With the big block 100ⁿ times heavier, the count is the first n+1 digits of π (Galperin, 1995). Played in real time, slowed down 4×; at big ratios the clacks blur together.',
-  select: { label: 'mass ratio', options: [[1, '1 : 1'], [100, '1 : 100'], [1e4, '1 : 10 000'], [1e6, '1 : 1 000 000'], [1e8, '1 : 100 000 000']], get(){ return this.ratio; }, set(v){ this.ratio = +v; this.reset(); } },
-  ratio: 100, SPEED: 0.25,
-  reset(){
-    const M = this.ratio, m = 1; let xs = 0.25, xb = 1.0, vs = 0, vb = -1, t = 0;
+  blurb: 'A big block slides into a small one, which bounces between it and a wall. Count every clack. With the big block 100ⁿ times heavier, the count is the first n+1 digits of π (Galperin, 1995). Played in real time, slowed down 4×; at big ratios the clacks blur together. The blocks are drawn to scale, as cubes.',
+  range: { label: 'mass ratio', min: 0, max: 4, get(){ return Math.round(Math.log10(this.ratio) / 2); }, set(v){ this.ratio = 100 ** v; this.setup(); } },
+  SPEED: 0.25,
+  reset(){ this.ratio = 1; this.setup(); },
+  setup(){
+    const M = this.ratio, m = 1; let xs = 0.5, xb = 1.0, vs = 0, vb = -1, t = 0;
     const T = [0], XS = [xs], XB = [xb], VS = [vs], VB = [vb];
     for (let n = 0; n < 1e7; n++){
       let tb = Infinity, tw = Infinity;
@@ -325,22 +347,25 @@ EXPS.push({
       if (tb <= tw){ const a = ((m - M) * vs + 2 * M * vb) / (m + M), b = ((M - m) * vb + 2 * m * vs) / (m + M); vs = a; vb = b; xb = xs; } else { vs = -vs; xs = 0; }
       T.push(t); XS.push(xs); XB.push(xb); VS.push(vs); VB.push(vb);
     }
-    this.T = T; this.XS = XS; this.XB = XB; this.VS = VS; this.VB = VB; this.N = T.length - 1; this.t = 0; this.i = 0; this.end = T[this.N] + 1.2;
+    this.T = T; this.XS = XS; this.XB = XB; this.VS = VS; this.VB = VB; this.N = T.length - 1; this.t = 0; this.i = 0; this.end = T[this.N] + 0.6;
   },
-  done(){ return this.t >= this.end; },
-  step(dt){ this.t = Math.min(this.end, this.t + dt * this.SPEED); while (this.i < this.N && this.T[this.i + 1] <= this.t) this.i++; },
+  done(){ return this.ratio >= 1e8 && this.t >= this.end; },
+  step(dt){
+    if (this.t >= this.end){ if (this.ratio < 1e8){ this.ratio *= 100; this.setup(); } return; }   // play runs through all five ratios
+    this.t = Math.min(this.end, this.t + dt * this.SPEED); while (this.i < this.N && this.T[this.i + 1] <= this.t) this.i++;
+  },
   draw(ctx){
     clear(ctx);
     const i = this.i, d = this.t - this.T[i], xs = this.XS[i] + this.VS[i] * d, xb = this.XB[i] + this.VB[i] * d;
-    const scale = 160, wall = 24, floor = 190, sm = 16, bg = 24 + 6 * Math.log10(this.ratio);
+    const scale = 160, wall = 24, floor = 190, sm = 12, bg = sm * Math.cbrt(this.ratio);
     ctx.fillStyle = C.line; ctx.fillRect(0, floor, W, 3); ctx.fillRect(wall - 4, floor - 120, 4, 123);
     ctx.fillStyle = C.accent; ctx.fillRect(wall + xs * scale, floor - sm, sm, sm);
     ctx.fillStyle = C.fg; ctx.fillRect(wall + sm + xb * scale, floor - bg, bg, bg);
-    ctx.fillStyle = C.fg; ctx.font = '700 34px system-ui'; ctx.textAlign = 'left'; ctx.fillText(big(i), 24, 48);
-    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.fillText('clacks', 26, 66);
+    ctx.font = '700 34px system-ui'; ctx.textAlign = 'left'; ctx.lineJoin = 'round'; ctx.strokeStyle = C.bg; ctx.lineWidth = 6; ctx.strokeText(big(i), 24, 48); ctx.fillStyle = C.fg; ctx.fillText(big(i), 24, 48);
+    ctx.font = '12px system-ui'; ctx.lineWidth = 4; ctx.strokeText('clacks', 26, 66); ctx.fillStyle = C.muted; ctx.fillText('clacks', 26, 66);
   },
   readout(){ const k = Math.sqrt(this.ratio); return digits(this.i / k, Math.round(Math.log10(k))); },
-  sub(){ const k = Math.sqrt(this.ratio); return `${big(this.N)} clacks in total ÷ √${big(this.ratio)} = ÷ ${big(k)}`; }
+  sub(){ const k = Math.sqrt(this.ratio); return `1 : ${big(this.ratio)}, ${big(this.N)} clacks in total ÷ √${big(this.ratio)} = ÷ ${big(k)}`; }
 });
 
 // 7. Coprime pairs
@@ -386,16 +411,17 @@ EXPS.push({
   step(dt){ if (this.n >= 1e6) return; if (this.n < 10){ this.acc += dt; if (this.acc > 0.5){ this.acc = 0; this.add(1); } return; } this.add(Math.max(1, Math.ceil(this.n / 150))); },
   draw(ctx){
     clear(ctx);
-    const S = 96, base = 200, x0 = 12;
+    // the row is 1 + 1/2 + 1/3 + ... wide, which keeps growing (slowly), so the scale shrinks to keep it inside the picture
+    const n = this.n, harm = n ? Math.log(n) + 0.5772 + 1 / (2 * n) : 1, S = Math.min(96, (W - 24) / harm), base = 200, x0 = 12;
     ctx.fillStyle = C.accent; let x = x0;
-    for (let n = 1; n <= this.n; n++){ const s = S / n; if (s < 0.4) break; ctx.globalAlpha = n === 1 ? 1 : 0.85; ctx.fillRect(x, base - s, s, s); x += s + (s > 4 ? 1.5 : 0); }
+    for (let i = 1; i <= n; i++){ const s = S / i; if (s < 0.4) break; ctx.globalAlpha = i === 1 ? 1 : 0.85; ctx.fillRect(x, base - s, s, s); x += s + (s > 4 ? 1.5 : 0); }
     ctx.globalAlpha = 1;
-    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'left';
-    if (this.n >= 1) ctx.fillText('1', x0 + S / 2 - 3, base + 16); if (this.n >= 2) ctx.fillText('½', x0 + S + 1.5 + S / 4 - 4, base + 16); if (this.n >= 3) ctx.fillText('⅓', x0 + S * 1.5 + 3 + S / 6 - 5, base + 16);
-    const T = Math.sqrt(Math.PI * Math.PI / 6) * S * 0.85, cx = W - 78, cy = 140, t = Math.sqrt(this.sum) * S * 0.85;
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    if (n >= 1) ctx.fillText('1', x0 + S / 2, base + 16); if (n >= 2) ctx.fillText('½', x0 + S + 1.5 + S / 4, base + 16); if (n >= 3 && S > 60) ctx.fillText('⅓', x0 + S * 1.5 + 3 + S / 6, base + 16);
+    const U = 68, T = Math.sqrt(Math.PI * Math.PI / 6) * U, cx = W - 62, cy = 14 + T / 2, t = Math.sqrt(this.sum) * U;
     ctx.strokeStyle = C.muted; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.strokeRect(cx - T / 2, cy - T / 2, T, T); ctx.setLineDash([]);
     ctx.fillStyle = C.accent2; ctx.fillRect(cx - t / 2, cy - t / 2, t, t);
-    ctx.fillStyle = C.muted; ctx.textAlign = 'center'; ctx.fillText('area π²/6', cx, cy + T / 2 + 16);
+    ctx.fillStyle = C.muted; ctx.fillText('area π²/6', cx, cy + T / 2 + 14);
   },
   readout(){ return digits(Math.sqrt(6 * this.sum)); },
   sub(){ return `${big(this.n)} squares, area ${this.sum.toFixed(6)}, √(6 × area)`; }
