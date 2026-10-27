@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Where π hides</title>
-<meta name="description" content="Eleven small experiments where the number π turns up uninvited.">
+<meta name="description" content="Twelve small experiments where the number π turns up uninvited.">
 <link rel="icon" href="../mouse/favicon.png" sizes="64x64" type="image/png">
 <meta name="theme-color" content="#f6e7c8">
 <style>
@@ -51,7 +51,7 @@ textarea{font:inherit;width:100%;padding:8px;border:2px solid var(--card-border)
 <body>
 <div class="wrap">
   <h1>Where π hides</h1>
-  <p class="tag">Eleven small experiments where π turns up uninvited. Digits in orange are the ones already right.</p>
+  <p class="tag">Twelve small experiments where π turns up uninvited. Digits in orange are the ones already right.</p>
   <div class="grid" id="grid"></div>
   <div class="row">
     <button class="btn" id="btnLike"><span id="likeHeart">🤍</span> <span id="likeLabel">Like</span><span id="likeCount"></span></button>
@@ -534,6 +534,35 @@ EXPS.push({
   },
   readout(){ return this.half === null ? '…' : digits(this.half * Math.sqrt(this.G / this.L)); },
   sub(){ return this.half === null ? `timing a ${this.amp.toFixed(this.amp >= 10 ? 0 : 2)}° swing` : `${this.half.toFixed(4)} s × √(9.81 ÷ 1)`; }
+});
+
+// 12. Guitar string. The fundamental's shape is one hump of a sine wave. Slice the hump at full swing into strips: their
+// area tends to 2/π of the bounding box, so π ≈ 2 × box ÷ strips. Midpoint strips, which converge like 1/n².
+EXPS.push({
+  name: 'Shape of a note', hint: 'a guitar string in slow motion',
+  blurb: 'A plucked string sounding its lowest note sways as one hump of a sine wave. Freeze it at full swing and slice the hump into strips: together they fill 2/π of the box around them, whatever the string\'s length, pitch or loudness. So π is twice the box divided by the strips. Thinner strips, more digits.',
+  MAX: 1000, X0: 20, Y0: 130, LEN: 280, AMP: 70,
+  range: { label: 'strips', min: 0, max: 300, get(){ return logSlider.fromN(this.n); }, set(v){ this.n = Math.min(this.MAX, logSlider.toN(v)); this.acc = 0; } },
+  reset(){ this.n = 1; this.t = 0; this.acc = 0; },
+  done(){ return this.n >= this.MAX; },
+  step(dt){ this.t += dt; if (this.done()) return; this.acc += dt; if (this.n < 10){ if (this.acc > 0.5){ this.acc = 0; this.n++; } } else if (this.acc > 0.06){ this.acc = 0; this.n = Math.min(this.MAX, Math.ceil(this.n * 1.08)); } },
+  mean(){ const n = this.n; let s = 0; for (let k = 0; k < n; k++) s += Math.sin(Math.PI * (k + 0.5) / n); return s / n; },   // strips' share of the box
+  draw(ctx){
+    clear(ctx);
+    const x0 = this.X0, y0 = this.Y0, L = this.LEN, A = this.AMP, n = this.n, w = L / n, sw = Math.cos(this.t * 2.2);   // slow motion: one swing every 2.9 s
+    ctx.strokeStyle = C.muted; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.strokeRect(x0, y0 - A, L, A); ctx.setLineDash([]);
+    ctx.fillStyle = C.accent; ctx.globalAlpha = 0.85;
+    for (let k = 0; k < n; k++){ const h = A * Math.sin(Math.PI * (k + 0.5) / n); ctx.fillRect(x0 + k * w, y0 - h, w, h); }
+    ctx.globalAlpha = 1;
+    if (w > 3){ ctx.strokeStyle = C.bg; ctx.lineWidth = 1; for (let k = 0; k < n; k++){ const h = A * Math.sin(Math.PI * (k + 0.5) / n); ctx.strokeRect(x0 + k * w, y0 - h, w, h); } }
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + L, y0); ctx.stroke();   // the string at rest
+    for (const env of [1, -1]){ ctx.strokeStyle = C.muted; ctx.setLineDash([2, 4]); ctx.beginPath(); for (let i = 0; i <= 80; i++){ const x = x0 + L * i / 80; ctx[i ? 'lineTo' : 'moveTo'](x, y0 - env * A * Math.sin(Math.PI * i / 80)); } ctx.stroke(); ctx.setLineDash([]); }
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 2.5; ctx.beginPath(); for (let i = 0; i <= 80; i++){ const x = x0 + L * i / 80; ctx[i ? 'lineTo' : 'moveTo'](x, y0 - sw * A * Math.sin(Math.PI * i / 80)); } ctx.stroke();   // the string now
+    ctx.fillStyle = C.fg; for (const x of [x0, x0 + L]){ ctx.beginPath(); ctx.arc(x, y0, 4, 0, 7); ctx.fill(); }
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(`${big(n)} strip${n > 1 ? 's' : ''} fill ${(this.mean() * 100).toFixed(2)}% of the box`, W / 2, H - 14);
+  },
+  readout(){ return digits(2 / this.mean()); },
+  sub(){ return `2 ÷ ${this.mean().toFixed(6)}`; }
 });
 
 // ---------- framework ----------
