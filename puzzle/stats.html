@@ -101,19 +101,21 @@ function square(d) {
   return out.join('');
 }
 const PI_TILES = { p1: 'Rolling wheel', p2: 'Squares in a circle', p3: "Archimedes' polygons", p4: 'Darts', p5: "Buffon's needle", p6: 'Bouncing blocks', p7: 'Coprime pairs', p8: 'Shrinking squares', p9: 'Leibniz zigzag', p10: 'Mandelbrot neck', p11: 'Pendulum clock', p12: 'Shape of a note' };
-function pi(d) {
-  // 'start' with level p0 is a page view; 'replay' with level p1..p10 is a tile's first animation in that view.
+const E_TILES = { e1: "Euler's climb", e2: 'Shrinking stack', e3: 'Hyperbola fill', e4: 'Valley ball', e5: 'Pouring glasses', e6: 'Hat check', e7: 'Mailboxes', e8: 'The 45° spiral', e9: 'Its own slope', e10: 'Staircase mean', e11: 'Squares in a rectangle', e12: 'The 37% rule' };
+// The tile pages: a 'start' with level p0/e0 is a page view; a 'replay' with the tile's id is its first animation in that view.
+const tilePage = (title, TILES) => d => {
   const ev = d.events, out = [], views = sum(ev.start), plays = sum(ev.replay);
-  out.push(`<h2>Where π hides</h2><div class="kpi">${kpis([['Likes', d.likes], ['Page views', views], ['Tiles animated', plays], ['Per view', views ? (plays / views).toFixed(1) : '–'], ['Feedback', d.feedback.length]])}</div>`);
+  out.push(`<h2>${title}</h2><div class="kpi">${kpis([['Likes', d.likes], ['Page views', views], ['Tiles animated', plays], ['Per view', views ? (plays / views).toFixed(1) : '–'], ['Feedback', d.feedback.length]])}</div>`);
   const per = {}; for (const k in ev.replay) { const lv = k.split(':')[0]; per[lv] = (per[lv] || 0) + ev.replay[k]; }
-  const rows = Object.keys(PI_TILES).map(id => [PI_TILES[id], per[id] || 0, views ? Math.round(100 * (per[id] || 0) / views) + '%' : '–']);
+  const rows = Object.keys(TILES).map(id => [TILES[id], per[id] || 0, views ? Math.round(100 * (per[id] || 0) / views) + '%' : '–']);
   out.push('<h3>Per tile</h3>' + table(['Tile', 'Animated', 'Of views'], rows));
   const days = byDate(ev.daily), dates = Object.keys(days).sort().reverse().slice(0, 30);
   out.push('<h3>Last 30 days</h3>' + (dates.length ? table(['Date', 'Views', 'Tiles animated'], dates.map(dt => [dt, days[dt].start || 0, days[dt].replay || 0])) : '<p class="muted">Nothing yet.</p>'));
   out.push('<h3>Feedback</h3>' + feedbackHtml(d.feedback, l => ''));
   return out.join('');
-}
-const GAMES = { mouse: { title: 'Mouse', render: mouse }, square: { title: 'Square Peg', render: square }, pi: { title: 'π', render: pi } };
+};
+const pi = tilePage('Where π hides', PI_TILES), e = tilePage('Where e hides', E_TILES);
+const GAMES = { mouse: { title: 'Mouse', render: mouse }, square: { title: 'Square Peg', render: square }, pi: { title: 'π', render: pi }, e: { title: 'e', render: e } };
 function showTab(id) {
   document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + id));
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));

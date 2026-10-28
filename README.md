@@ -15,13 +15,18 @@ Small puzzle games with a bit of maths behind them, deployed together as one Ver
   solver and loop generator shared with `gen.js`, which stocks `puzzles.json` with a loop per day
   (`node square/gen.js 400` tops the stock up to 400 days; existing days are never changed).
   `DESIGN.md` has the theorem and the design, `solve.py` a Python prototype of the solver.
-- `pi/`: **Where π hides**. Ten small experiments where π turns up: a rolling wheel, Archimedes'
+- `pi/`: **Where π hides**. Twelve small experiments where π turns up: a rolling wheel, Archimedes'
   polygons, squares filling a circle, darts, Buffon's needle, Galperin's bouncing blocks, coprime
   pairs, the Basel sum, the Leibniz series, the Mandelbrot neck, a pendulum and a guitar string. `index.html` is the whole page.
   Counters: a `start` per page view (level `p0`) and a `replay` the first time a tile is animated
   (level `p1`..`p12`, the tile's number).
+- `e/`: **Where e hides**. The same idea for e: Euler's method climb, the factorial series, area 1 under
+  1/x, a ball in the valley of x^(1/x), random pours until overflow, the hat check, letters into
+  mailboxes, the 45° spiral, the base whose curve is its own slope, the geometric mean of 1..n
+  (Stirling), Euclid's squares in an e × 1 rectangle, and the 37% rule. `index.html` is the whole page.
+  Same counters, with levels `e0` (page view) and `e1`..`e12`.
 - `api/`: four small Vercel functions shared by the games: likes, feedback, gameplay counters,
-  stats. They take a `game` field (`mouse` by default, `square` or `pi`); the mouse keeps its original
+  stats. They take a `game` field (`mouse` by default, `square`, `pi` or `e`); the mouse keeps its original
   Redis keys, other games get a `:game` suffix. `lib/kv.js` talks to the Redis store.
 - `vercel.json`: the rewrites. `mouse.romke.com/*` → `/mouse/*` (except `/api/`), and `/` → `/puzzle/`.
 

@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Where e hides</title>
+<meta name="description" content="Twelve small experiments where the number e, the base of natural growth, turns up uninvited.">
+<link rel="icon" href="../mouse/favicon.png" sizes="64x64" type="image/png">
+<meta name="theme-color" content="#f6e7c8">
+<style>
+:root{ --bg:#f6e7c8; --bg2:#f0d9a8; --fg:#3a2a1a; --muted:#8a7256; --card:#fff7e6; --card-border:#e6cfa3; --accent:#ff8c42; --accent2:#2f8f9d; --line:#d9c29a; }
+@media (prefers-color-scheme: dark){ :root{ --bg:#1f2740; --bg2:#141a2c; --fg:#f0ecdf; --muted:#aab0c4; --card:#2a3350; --card-border:#3b476a; --line:#3b476a; --accent2:#5ec4d3; } }
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:radial-gradient(circle at 50% 30%,var(--bg) 0%,var(--bg2) 100%);color:var(--fg)}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 16px 40px}
+h1{font-size:2rem;margin:.2em 0 0;letter-spacing:-.02em}
+.tag{color:var(--muted);margin:0 0 1.2em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.tile{background:var(--card);border:2px solid var(--card-border);border-radius:18px;padding:12px 12px 10px;box-shadow:0 6px 0 rgba(90,64,48,.15);display:flex;flex-direction:column}
+.tile h2{font-size:1.05rem;margin:0 0 8px}
+.tile h2 small{display:block;color:var(--muted);font-weight:500;font-size:.8rem;margin-top:2px}
+canvas{width:100%;height:auto;display:block;border-radius:10px;background:var(--bg);touch-action:manipulation}
+.est{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:1.35rem;margin:8px 0 0;line-height:1.3;min-height:1.7em}
+.est .ok{color:var(--accent);font-weight:700}
+.est .lbl{color:var(--muted);font-size:.8rem;font-family:system-ui,sans-serif;margin-right:.4em}
+.sub{color:var(--muted);font-size:.82rem;margin:2px 0 6px;min-height:1.2em}
+.ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:auto}
+button,select{font:inherit;font-size:.85rem;color:var(--fg);background:var(--bg);border:1.5px solid var(--card-border);border-radius:10px;padding:5px 10px;cursor:pointer}
+button.play{min-width:3.4em}
+button:active{transform:translateY(1px)}
+input[type=range]{flex:1;min-width:80px;accent-color:var(--accent)}
+.ctl label{color:var(--muted);font-size:.8rem;display:flex;align-items:center;gap:6px;flex:1}
+.blurb{color:var(--muted);font-size:.82rem;line-height:1.4;margin:8px 0 0}
+.foot{color:var(--muted);font-size:.85rem;margin-top:24px}
+.foot a{color:var(--accent)}
+@media (max-width:640px){ .tile h2 small,.sub,.blurb,.ctl label{font-size:.95rem} button,select{font-size:.95rem} .est{font-size:1.45rem} }
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;margin-top:18px}
+.btn{font:inherit;font-weight:800;font-size:1rem;color:var(--fg);background:var(--card);border:2px solid var(--card-border);border-radius:12px;padding:.4em .9em;cursor:pointer}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+dialog{border:0;border-radius:18px;padding:16px;max-width:420px;width:calc(100% - 32px);color:var(--fg);background:var(--card)}
+dialog::backdrop{background:rgba(40,30,20,.45)}
+dialog h3{margin:0 0 .4em}
+dialog p{color:var(--muted);margin:0 0 .6em;font-size:.9rem}
+textarea{font:inherit;width:100%;padding:8px;border:2px solid var(--card-border);border-radius:10px;background:var(--bg);color:var(--fg);resize:vertical}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:.5em 1em;border-radius:10px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Where e hides</h1>
+  <p class="tag">Twelve small experiments where e, the number behind natural growth (2.71828…), turns up uninvited. Digits in orange are the ones already right.</p>
+  <div class="grid" id="grid"></div>
+  <div class="row">
+    <button class="btn" id="btnLike"><span id="likeHeart">🤍</span> <span id="likeLabel">Like</span><span id="likeCount"></span></button>
+    <button class="btn" id="btnFeedback">Feedback</button>
+  </div>
+  <p class="foot">Made by Romke Jonker. Siblings: <a href="../pi/">Where π hides</a>, <a href="../mouse/">Schrödinger&#39;s Mouse</a> and <a href="../square/">Square Peg</a>. <a href="../">All puzzles.</a></p>
+</div>
+<dialog id="fb">
+  <h3>Feedback</h3>
+  <p>What do you think? A bug, an idea, another place e hides. Anonymous, one message at a time. Nothing but the text is stored.</p>
+  <textarea id="fbText" maxlength="1000" placeholder="Your message" rows="5"></textarea>
+  <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" id="fbCancel">Cancel</button><button class="btn primary" id="fbSend">Send</button></div>
+</dialog>
+<div class="toast" id="toast"></div>
+<script>
+(() => {
+const E_STR = '2.718281828459045';
+const W = 320, H = 240, DPR = Math.min(2, window.devicePixelRatio || 1);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let C = {};
+function readColors(){ C = { fg: css('--fg'), muted: css('--muted'), accent: css('--accent'), accent2: css('--accent2'), line: css('--line'), bg: css('--bg') }; }
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); tiles.forEach(t => { if (t.exp.onTheme) t.exp.onTheme(); paint(t); show(t); }); });
+
+const fmt = (x, d = 6) => (isFinite(x) && x >= 0) ? (Math.floor(x * 10 ** d) / 10 ** d).toFixed(d) : '—';
+function digits(x, d = 6){
+  const s = fmt(x, d);
+  if (s === '—') return '—';
+  let k = 0; while (k < s.length && s[k] === E_STR[k]) k++;
+  return `<span class="ok">${s.slice(0, k)}</span>${s.slice(k)}`;
+}
+const between = (lo, hi) => digits(lo) + '<span class="lbl"> &lt; e &lt; </span>' + digits(hi);
+const big = n => n.toLocaleString('en-US');
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+function offscreen(w, h, dpr = DPR){ const c = document.createElement('canvas'); c.width = w * dpr; c.height = h * dpr; const x = c.getContext('2d'); x.scale(dpr, dpr); return [c, x]; }
+function clear(ctx){ ctx.clearRect(0, 0, W, H); }
+function fade(ox, a){ ox.globalCompositeOperation = 'destination-out'; ox.fillStyle = `rgba(0,0,0,${a})`; ox.fillRect(0, 0, W, H); ox.globalCompositeOperation = 'source-over'; }
+function zoomLabel(ctx, Z){ const t = '×' + (Z >= 100 ? big(Math.round(Z)) : Z.toFixed(1)); ctx.font = '11px system-ui'; ctx.textAlign = 'right'; ctx.lineJoin = 'round'; ctx.strokeStyle = C.bg; ctx.lineWidth = 3; ctx.strokeText(t, W - 8, H - 8); ctx.fillStyle = C.muted; ctx.fillText(t, W - 8, H - 8); }
+const logSlider = { min: 0, max: 600, toN: v => Math.round(10 ** (v / 100)), fromN: n => Math.round(100 * Math.log10(Math.max(1, n))) };
+
+// ---------- experiments ----------
+const EXPS = [];
+// 1. Euler's climb. The polyline of Euler's method for y' = y ends at (1 + 1/n)^n. Everything is drawn relative to the
+// point (1, e), which stays put on screen, so the zoom is exact; heights are kept as differences from e (expm1).
+EXPS.push({
+  name: "Euler's climb", hint: 'slope equals height, in n steps',
+  blurb: 'Start at height 1 and walk to the right in n equal steps, each step climbing at a slope equal to your current height. After one unit you stand at (1 + 1/n)ⁿ. Finer steps hug the smooth curve that is its own slope, and its height at 1 is e. Bank interest of 100% a year, paid in n instalments: same thing. The view zooms in on the landing point, a little slower than the steps shrink.',
+  MAX: 1e6, SX: 240, SY: 62, OX: 30, OY: 222,
+  range: { label: 'steps', min: 0, max: 600, get(){ return logSlider.fromN(this.n); }, set(v){ this.n = Math.min(this.MAX, logSlider.toN(v)); this.acc = 0; } },
+  reset(){ this.n = 1; this.acc = 0; },
+  done(){ return this.n >= this.MAX; },
+  step(dt){ if (this.done()) return; this.acc += dt; if (this.n < 10){ if (this.acc > 0.5){ this.acc = 0; this.n++; } } else if (this.acc > 0.06){ this.acc = 0; this.n = Math.min(this.MAX, Math.ceil(this.n * 1.08)); } },
+  val(){ return Math.exp(this.n * Math.log1p(1 / this.n)); },
+  zoom(){ return Math.max(1, ((Math.E - 2) / (Math.E - this.val())) ** 0.7); },   // lags the shrinking steps: 82 px wide at 10 steps, 2.4 px at a million
+  draw(ctx){
+    clear(ctx);
+    const n = this.n, Z = this.zoom(), sx = this.SX * Z, sy = this.SY * Z, xe = this.OX + this.SX, ye = this.OY - this.SY * Math.E;
+    const X = x => xe + (x - 1) * sx, Y = dy => ye - dy * sy;   // dy is the height above e
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(0), Y(-Math.E)); ctx.lineTo(W, Y(-Math.E)); ctx.moveTo(X(0), 0); ctx.lineTo(X(0), H); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    for (let v = 1; v <= 3; v++){ const y = Y(v - Math.E); ctx.beginPath(); ctx.moveTo(X(0) - 4, y); ctx.lineTo(X(0), y); ctx.stroke(); ctx.fillText(String(v), X(0) - 12, y + 4); }
+    ctx.beginPath(); ctx.moveTo(X(1), Y(-Math.E)); ctx.lineTo(X(1), Y(-Math.E) + 5); ctx.stroke(); ctx.fillText('1', X(1), Y(-Math.E) + 17);
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = C.accent2; ctx.beginPath(); ctx.moveTo(Math.max(0, X(0)), ye); ctx.lineTo(W, ye); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = C.accent2; ctx.textAlign = 'left'; ctx.fillText('e', W - 14, ye - 5);
+    const x0 = Math.max(0, 1 - (xe + 5) / sx), x1 = Math.min(1.5, 1 + (W - xe + 5) / sx);   // the smooth curve, only the part in view
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.5; ctx.beginPath();
+    for (let i = 0; i <= 120; i++){ const x = x0 + (x1 - x0) * i / 120; ctx[i ? 'lineTo' : 'moveTo'](X(x), Y(Math.E * Math.expm1(x - 1))); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    const k0 = Math.max(0, Math.floor(n * (1 - (xe + 5) / sx))), m = Math.max(1, Math.ceil((n - k0) / 3000)), L = Math.log1p(1 / n);   // the walk: vertices in view, decimated if there are too many
+    const P = k => [X(k / n), Y(Math.E * Math.expm1(k * L - 1))];
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let k = k0; k <= n; k += m){ const [x, y] = P(k); ctx[k === k0 ? 'moveTo' : 'lineTo'](x, y); }
+    if ((n - k0) % m) { const [x, y] = P(n); ctx.lineTo(x, y); }
+    ctx.stroke();
+    if (sx / n > 12){ ctx.fillStyle = C.accent; for (let k = k0; k <= n; k++){ const [x, y] = P(k); ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); } }
+    const [px, py] = P(n); ctx.fillStyle = C.accent; ctx.beginPath(); ctx.arc(px, py, 4.5, 0, 7); ctx.fill(); ctx.strokeStyle = C.bg; ctx.lineWidth = 1.5; ctx.stroke();
+    if (Z > 1.02) zoomLabel(ctx, Z);
+  },
+  readout(){ return digits(this.val()); },
+  sub(){ return `${big(this.n)} step${this.n > 1 ? 's' : ''}: (1 + 1/${big(this.n)})^${big(this.n)}`; }
+});
+
+// 2. Shrinking stack: blocks of side 1/k! in a row. The camera follows the newest block, zooming a little slower than the
+// blocks shrink. Positions are summed outward from the newest block, so they stay exact at a zoom of a hundred million.
+EXPS.push({
+  name: 'Shrinking stack', hint: '1 + 1 + ½ + ⅙ + 1/24 + …',
+  blurb: 'Blocks in a row: 1, then 1, then a half, a sixth, a twenty-fourth, each one the previous divided by the next counting number. Their total length is 1 + 1/1! + 1/2! + 1/3! + … = e. Absurdly fast: thirteen blocks give nine digits. The view follows the newest block, zooming in a little slower than the blocks shrink, so the earlier ones slide off to the left.',
+  MAX: 12, PER: 0.7, RIGHT: 250, BASE: 200,
+  range: { label: 'blocks', min: 0, max: 12, get(){ return this.m; }, set(v){ this.m = v; this.acc = this.PER; } },
+  reset(){ this.m = 0; this.acc = 0; if (!this.F){ this.F = [1]; for (let k = 1; k <= 20; k++) this.F[k] = this.F[k - 1] * k; } },
+  done(){ return this.m >= this.MAX && this.acc >= this.PER; },
+  step(dt){ if (this.done()) return; this.acc += dt; if (this.acc >= this.PER && this.m < this.MAX){ this.m++; this.acc = 0; } },
+  sum(){ let s = 0; for (let k = 0; k <= this.m; k++) s += 1 / this.F[k]; return s; },
+  label(j){ return j < 2 ? '1' : j === 2 ? '½' : j === 3 ? '⅙' : '1/' + big(this.F[j]); },
+  draw(ctx){
+    clear(ctx);
+    const m = this.m, F = this.F, fr = Math.min(1, this.acc / this.PER), base = this.BASE;
+    const z = 80 * (m ? F[m - 1] ** 0.85 * m ** (0.85 * fr) : 1), ax = this.RIGHT + (1 - fr) * z / F[m];   // scale, and the screen x of the newest block's right edge (it slides in)
+    let off = 0, lx = 0;
+    for (let j = m; j >= 0; j--){
+      const right = ax - z * off, w = Math.max(1, z / F[j]); off += 1 / F[j];
+      if (right < 0) break;
+      ctx.fillStyle = C.accent; ctx.globalAlpha = j === m ? 1 : 0.85; ctx.fillRect(Math.max(-2, right - w), base - w, Math.min(w, right + 2), w); ctx.globalAlpha = 1;
+      if (w > 3 && w < 2000){ ctx.strokeStyle = C.bg; ctx.lineWidth = 1; ctx.strokeRect(right - w, base - w, w, w); }
+      if (j === m) lx = right - w / 2;
+    }
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(this.label(m), clamp(lx, 30, W - 30), base + 16);
+    const U = 80, tx = 40, ty = 30;   // the total so far against the target length
+    ctx.fillStyle = C.bg; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.roundRect(tx - 10, ty - 10, Math.E * U + 20, 56, 8); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = C.muted; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.strokeRect(tx, ty, Math.E * U, 14); ctx.setLineDash([]);
+    ctx.fillStyle = C.accent2; ctx.fillRect(tx, ty, this.sum() * U, 14);
+    ctx.fillStyle = C.muted; ctx.textAlign = 'left'; ctx.fillText('total length, target e', tx, ty + 30);
+    if (z > 81) zoomLabel(ctx, z / 80);
+  },
+  readout(){ return digits(this.sum(), 9); },
+  sub(){ const m = this.m; return m === 0 ? '1 block' : `${m + 1} blocks: 1 + 1/1! + … + 1/${m}!`; }
+});
+
+// 3. Hyperbola fill. Midpoint strips of width 1/n under y = 1/x from x = 1; the last strip is cut where the area reaches 1.
+EXPS.push({
+  name: 'Hyperbola fill', hint: 'area 1 under y = 1/x',
+  blurb: 'Fill the space under the curve y = 1/x, starting at x = 1 and working to the right, until the area is exactly 1. Where you have to stop is e. This area is what the natural logarithm measures, and ln e = 1. Strips of equal width make the area countable; the last strip is cut where the total hits 1. Thinner strips, more digits.',
+  MAX: 1000, X0: 14, SX: 86, Y0: 214, SY: 92,
+  range: { label: 'strips per unit', min: 0, max: 300, get(){ return logSlider.fromN(this.n); }, set(v){ this.n = Math.min(this.MAX, logSlider.toN(v)); this.acc = 0; } },
+  reset(){ this.n = 1; this.acc = 0; },
+  done(){ return this.n >= this.MAX; },
+  step(dt){ if (this.done()) return; this.acc += dt; if (this.n < 10){ if (this.acc > 0.5){ this.acc = 0; this.n++; } } else if (this.acc > 0.06){ this.acc = 0; this.n = Math.min(this.MAX, Math.ceil(this.n * 1.08)); } },
+  land(){ const h = 1 / this.n; let a = 0, k = 0; for (;;){ const da = h / (1 + (k + 0.5) * h); if (a + da >= 1) return { x: 1 + k * h + (1 - a) / da * h, k, h }; a += da; k++; } },
+  draw(ctx){
+    clear(ctx);
+    const X = x => this.X0 + x * this.SX, Y = y => this.Y0 - y * this.SY, { x, k, h } = this.land();
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    for (let v = 1; v <= 3; v++){ ctx.beginPath(); ctx.moveTo(X(v), Y(0)); ctx.lineTo(X(v), Y(0) + 5); ctx.stroke(); ctx.fillText(String(v), X(v), Y(0) + 17); }
+    ctx.fillStyle = C.accent; ctx.globalAlpha = 0.85;
+    for (let i = 0; i <= k; i++){ const x0 = 1 + i * h, w = i < k ? h : x - x0, y = 1 / (x0 + h / 2); ctx.fillRect(X(x0), Y(y), w * this.SX, y * this.SY); }
+    ctx.globalAlpha = 1;
+    if (h * this.SX > 3){ ctx.strokeStyle = C.bg; ctx.lineWidth = 1; for (let i = 0; i <= k; i++){ const x0 = 1 + i * h, w = i < k ? h : x - x0, y = 1 / (x0 + h / 2); ctx.strokeRect(X(x0), Y(y), w * this.SX, y * this.SY); } }
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let i = 0; i <= 160; i++){ const v = 0.47 + (3.5 - 0.47) * i / 160; ctx[i ? 'lineTo' : 'moveTo'](X(v), Y(1 / v)); }
+    ctx.stroke();
+    ctx.strokeStyle = C.accent2; ctx.setLineDash([3, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(x), Y(0) + 8); ctx.lineTo(X(x), Y(1 / x) - 8); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = C.accent2; ctx.beginPath(); ctx.arc(X(x), Y(0), 4, 0, 7); ctx.fill();
+    ctx.fillStyle = C.bg; ctx.font = '700 14px system-ui'; ctx.fillText('area 1', X(1.55), Y(0.28));
+      },
+  readout(){ return digits(this.land().x); },
+  sub(){ const { k } = this.land(); return `${big(k + 1)} strips of width 1/${big(this.n)}, the last one cut`; }
+});
+
+// 4. Valley ball. The curve x^(1/x) peaks at e. Drawn upside down and stretched tall, it is a valley; a ball with a little
+// friction rolls to the bottom. Acceleration follows the slope of x^(1/x), with the ball's x as its position.
+EXPS.push({
+  name: 'Valley ball', hint: 'which x makes x^(1/x) biggest?',
+  blurb: 'Raise a number to the power of its own reciprocal: x^(1/x). For 2 that is √2 ≈ 1.414; for 4 it is ⁴√4, the same. Somewhere in between lies the biggest value, and that somewhere is e. Here the curve is turned upside down and stretched 1200× tall, and a ball rolls to the bottom of the valley. Tap to drop it elsewhere. Same question in disguise: cut a rope into equal pieces so that the product of their lengths is as big as possible. Pieces of length e win.',
+  X0: 1.3, X1: 5.2, K: 1200, BASE: 186, A: 30, D: 2.5, DT: 1 / 240, DUR: 14,
+  range: { label: 'drop at', min: 140, max: 500, get(){ return Math.round(this.x0 * 100); }, set(v){ this.start(v / 100); } },
+  reset(){ this.start(1.6); },
+  start(x0){ this.x0 = x0; this.x = x0; this.v = 0; this.t = 0; },
+  g(x){ return Math.exp(Math.log(x) / x); },
+  dg(x){ return this.g(x) * (1 - Math.log(x)) / (x * x); },
+  tap(px){ this.start(clamp(this.X0 + (px - 10) / (W - 20) * (this.X1 - this.X0), 1.4, 5)); },
+  done(){ return this.t >= this.DUR; },
+  step(dt){ let left = Math.min(dt, this.DUR - this.t); while (left > 0){ const h = Math.min(this.DT, left); left -= h; this.v += (this.A * this.dg(this.x) - this.D * this.v) * h; this.x += this.v * h; this.t += h; } },
+  draw(ctx){
+    clear(ctx);
+    const X = x => 10 + (x - this.X0) / (this.X1 - this.X0) * (W - 20), Y = x => this.BASE - this.K * (this.g(Math.E) - this.g(x));
+    ctx.fillStyle = C.line; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(X(this.X0), H + 5);
+    for (let i = 0; i <= 200; i++){ const x = this.X0 + (this.X1 - this.X0) * i / 200; ctx.lineTo(X(x), Math.max(-20, Y(x))); }
+    ctx.lineTo(X(this.X1), H + 5); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let i = 0; i <= 200; i++){ const x = this.X0 + (this.X1 - this.X0) * i / 200; ctx[i ? 'lineTo' : 'moveTo'](X(x), Math.max(-20, Y(x))); }
+    ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    for (let v = 2; v <= 5; v++){ ctx.fillText(String(v), X(v), H - 8); ctx.fillRect(X(v) - 0.5, H - 26, 1, 6); }
+    ctx.fillStyle = C.accent; ctx.beginPath(); ctx.arc(X(this.x), Y(this.x) - 8, 8, 0, 7); ctx.fill(); ctx.strokeStyle = C.bg; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.fillText('x^(1/x), upside down, 1200× taller', W - 10, 20);
+  },
+  readout(){ return digits(this.x); },
+  sub(){ return `ball at x = ${this.x.toFixed(6)}, ${this.done() ? 'at rest' : 'rolling'}`; }
+});
+// Seeded integer hash shared by the chance tiles: trial i, draw j is a pure function of (seed, i, j), so nothing is stored
+// and the slider can move both ways.
+const mix = (seed, i) => { let h = Math.imul(i ^ seed, 0x9E3779B1); h ^= h >>> 15; h = Math.imul(h, 0x85EBCA77); h ^= h >>> 13; h = Math.imul(h, 0xC2B2AE3D); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+const newSeed = () => (Math.random() * 4294967296) >>> 0;
+
+// 5. Pouring glasses: random pours of 0 to 1 glass until it overflows; the mean number of pours is e.
+EXPS.push({
+  name: 'Pouring glasses', hint: 'pour at random until it overflows',
+  blurb: 'Pour random amounts, anywhere between nothing and a full glass, into an empty glass until it overflows. Sometimes two pours do it, sometimes five. On average it takes exactly e pours. Slow and noisy, like all chance: a hundred times the glasses buys one more digit.',
+  MAX: 1e6, GX: 36, GW: 76, GY: 44, GH: 140,
+  range: { label: 'glasses', min: 0, max: 600, get(){ return this.n ? logSlider.fromN(this.n) : 0; }, set(v){ this.setN(v ? logSlider.toN(v) : 0); } },
+  reset(){ this.seed = newSeed(); this.n = 0; this.pours = 0; this.hist = new Array(8).fill(0); this.cur = []; this.j = 0; this.fill = 0; this.hold = 0; },
+  trial(i){ const p = []; let s = 0; for (let j = 0; j < 32 && s <= 1; j++){ const u = mix(this.seed, i * 32 + j); p.push(u); s += u; } return p; },
+  add(N){ for (let i = this.n; i < N; i++){ const c = this.trial(i).length; this.pours += c; this.hist[Math.min(7, c)]++; } this.n = N; },
+  setN(N){ N = Math.min(N, this.MAX); if (N < this.n){ this.n = 0; this.pours = 0; this.hist.fill(0); } this.add(N); this.cur = N ? this.trial(N - 1) : []; this.j = this.cur.length; this.fill = 1; this.hold = 0; },
+  done(){ return this.n >= this.MAX; },
+  step(dt){
+    if (this.done()) return;
+    if (this.n < 4){   // the first glasses are poured one splash at a time
+      if (this.hold > 0){ this.hold -= dt; if (this.hold <= 0){ this.add(this.n + 1); this.cur = []; this.j = 0; this.fill = 0; } return; }
+      if (!this.cur.length){ this.cur = this.trial(this.n); this.j = 0; this.fill = 0; }
+      this.fill = Math.min(1, this.fill + dt / 0.4);
+      if (this.fill >= 1){ this.j++; this.fill = 0; if (this.j >= this.cur.length){ this.fill = 1; this.hold = 0.7; } }
+      return;
+    }
+    const k = this.n < 100 ? 1 : this.n < 2000 ? 10 : this.n < 50000 ? 150 : 3000; this.add(Math.min(this.MAX, this.n + k)); this.cur = this.trial(this.n - 1); this.j = this.cur.length; this.fill = 1;
+  },
+  draw(ctx){
+    clear(ctx);
+    const gx = this.GX, gw = this.GW, gy = this.GY, gh = this.GH, bottom = gy + gh;
+    let lvl = 0;
+    for (let j = 0; j < this.cur.length && j <= this.j; j++){
+      const u = this.cur[j] * (j === this.j ? Math.min(1, this.fill) : 1), top = lvl + u;
+      ctx.fillStyle = j % 2 ? C.accent2 : C.accent; ctx.globalAlpha = 0.85;
+      ctx.fillRect(gx, bottom - Math.min(1, top) * gh, gw, (Math.min(1, top) - lvl) * gh);
+      if (top > 1){ ctx.fillRect(gx - 10, gy - 6, gw + 20, 4); ctx.fillRect(gx - 14, gy - 2, 4, 30); ctx.fillRect(gx + gw + 10, gy - 2, 4, 22); }   // overflow
+      ctx.globalAlpha = 1; lvl = Math.min(1, top);
+    }
+    if (this.j < this.cur.length && this.fill < 1){ ctx.strokeStyle = C.accent2; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(gx + gw / 2, 6); ctx.lineTo(gx + gw / 2, bottom - lvl * gh); ctx.stroke(); }
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(gx - 1, gy - 8); ctx.lineTo(gx - 1, bottom + 1); ctx.lineTo(gx + gw + 1, bottom + 1); ctx.lineTo(gx + gw + 1, gy - 8); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    const c = Math.min(this.j + 1, this.cur.length);
+    ctx.fillText(this.cur.length ? `${c} pour${c > 1 ? 's' : ''}${this.j >= this.cur.length ? ', overflow' : ''}` : '', gx + gw / 2, bottom + 20);
+    const hx = 150, hw = 24, top = Math.max(1, ...this.hist.slice(2));
+    ctx.fillText('pours needed', hx + 3 * hw, 20);
+    for (let k = 2; k <= 7; k++){ const h = this.hist[k] / top * 150, x = hx + (k - 2) * hw; ctx.fillStyle = C.accent; ctx.globalAlpha = 0.85; ctx.fillRect(x + 2, bottom - h, hw - 4, h); ctx.globalAlpha = 1; ctx.fillStyle = C.muted; ctx.fillText(k === 7 ? '7+' : String(k), x + hw / 2, bottom + 20); }
+  },
+  readout(){ return this.n ? digits(this.pours / this.n) : '—'; },
+  sub(){ return `${big(this.n)} glasses, ${big(this.pours)} pours, pours ÷ glasses`; }
+});
+
+// 6. Hat check: ten hats handed back at random; no one gets their own in 1/e of the rounds (derangements).
+EXPS.push({
+  name: 'Hat check', hint: 'ten hats handed back at random',
+  blurb: 'Ten people leave their hats at the door and get them back at random. How often does nobody get their own hat back? Once in e rounds: 36.8%, and the same for any number of people beyond a handful. Rounds where someone gets lucky light up; e is rounds ÷ rounds with no match.',
+  N: 10, MAX: 1e6,
+  range: { label: 'rounds', min: 0, max: 600, get(){ return this.n ? logSlider.fromN(this.n) : 0; }, set(v){ this.setN(v ? logSlider.toN(v) : 0); } },
+  reset(){ this.seed = newSeed(); this.n = 0; this.none = 0; this.hist = [0, 0, 0, 0]; this.cur = null; this.acc = 0; },
+  perm(i){ const p = [...Array(this.N).keys()]; for (let k = this.N - 1; k > 0; k--){ const r = Math.floor(mix(this.seed, i * 16 + k) * (k + 1)); [p[k], p[r]] = [p[r], p[k]]; } return p; },
+  matches(p){ let m = 0; for (let k = 0; k < p.length; k++) if (p[k] === k) m++; return m; },
+  add(N){ for (let i = this.n; i < N; i++){ const m = this.matches(this.perm(i)); if (!m) this.none++; this.hist[Math.min(3, m)]++; } this.n = N; },
+  setN(N){ N = Math.min(N, this.MAX); if (N < this.n){ this.n = 0; this.none = 0; this.hist = [0, 0, 0, 0]; } this.add(N); this.cur = N ? this.perm(N - 1) : null; },
+  done(){ return this.n >= this.MAX; },
+  step(dt){
+    if (this.done()) return;
+    if (this.n < 8){ this.acc += dt; if (this.acc > 0.8){ this.acc = 0; this.add(this.n + 1); this.cur = this.perm(this.n - 1); } return; }
+    const k = this.n < 100 ? 1 : this.n < 2000 ? 10 : this.n < 50000 ? 150 : 3000; this.add(Math.min(this.MAX, this.n + k)); this.cur = this.perm(this.n - 1);
+  },
+  hue(k){ return `hsl(${k * 36 + 10} 70% 50%)`; },
+  draw(ctx){
+    clear(ctx);
+    const p = this.cur || [...Array(this.N).keys()], y = 74, m = this.matches(p);
+    for (let k = 0; k < this.N; k++){
+      const x = 34 + k * 28, own = p[k] === k && this.cur;
+      if (own){ ctx.strokeStyle = C.accent; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.roundRect(x - 13, y - 34, 26, 62, 8); ctx.stroke(); }
+      ctx.fillStyle = this.hue(k); ctx.fillRect(x - 9, y + 11, 18, 14);   // the person, in their own colour
+      ctx.fillStyle = C.fg; ctx.globalAlpha = 0.75; ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = this.hue(p[k]); ctx.fillRect(x - 12, y - 14, 24, 4); ctx.fillRect(x - 7, y - 27, 14, 13);   // the hat they got back
+    }
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(this.cur ? (m === 1 ? '1 person got their own hat back' : m ? `${m} people got their own hat back` : 'nobody got their own hat back') : 'everyone with their own hat, before the shuffle', W / 2, 126);
+    const hx = 60, hw = 50, top = Math.max(1, ...this.hist), base = 212;
+    for (let k = 0; k < 4; k++){ const h = this.hist[k] / top * 62, x = hx + k * hw; ctx.fillStyle = k ? C.muted : C.accent; ctx.globalAlpha = 0.85; ctx.fillRect(x + 4, base - h, hw - 8, h); ctx.globalAlpha = 1; ctx.fillStyle = C.muted; ctx.fillText(k === 3 ? '3+' : String(k), x + hw / 2, base + 16); }
+    ctx.textAlign = 'left'; ctx.fillText('matches', 10, 150);
+  },
+  readout(){ return this.n ? digits(this.n / this.none) : '—'; },
+  sub(){ return `${big(this.n)} rounds, ${big(this.none)} with no match, rounds ÷ no-match`; }
+});
+
+// 7. Mailboxes: 1000 letters into 1000 boxes at random; (1 − 1/1000)^1000 of the boxes stay empty, a hair under 1/e.
+EXPS.push({
+  name: 'Mailboxes', hint: '1000 letters into 1000 boxes',
+  blurb: 'A thousand letters are dropped into a thousand mailboxes at random. Some boxes get two or three, and about 368 get nothing: a share of 1/e. The same 1/e as in the hat check, and as the chance of winning nothing with a thousand tickets in a one-in-a-thousand lottery. With a thousand boxes the share is a hair under 1/e, so the digits stop at three.',
+  N: 1000, COLS: 40, MAX: 1e4,
+  range: { label: 'rounds', min: 0, max: 400, get(){ return this.n ? logSlider.fromN(this.n) : 0; }, set(v){ this.setN(v ? logSlider.toN(v) : 0); } },
+  reset(){ this.seed = newSeed(); this.n = 0; this.empty = 0; this.counts = new Uint8Array(this.N); this.k = 0; },
+  box(i, j){ return Math.floor(mix(this.seed, i * 1024 + j) * this.N); },
+  round(i){ const c = this.counts; c.fill(0); for (let j = 0; j < this.N; j++) c[this.box(i, j)]++; let e = 0; for (let b = 0; b < this.N; b++) if (!c[b]) e++; return e; },
+  add(N){ for (let i = this.n; i < N; i++) this.empty += this.round(i); this.n = N; },
+  setN(N){ N = Math.min(N, this.MAX); if (N < this.n){ this.n = 0; this.empty = 0; } this.add(N); if (!N) this.counts.fill(0); this.k = this.N; },
+  done(){ return this.n >= this.MAX; },
+  step(){
+    if (this.done()) return;
+    if (this.n === 0){ const per = this.k < 60 ? 2 : this.k < 300 ? 8 : 30; for (let q = 0; q < per && this.k < this.N; q++, this.k++) this.counts[this.box(0, this.k)]++; if (this.k >= this.N) this.add(1); return; }   // the first round, letter by letter
+    const k = this.n < 20 ? 1 : this.n < 300 ? 5 : 40; this.add(Math.min(this.MAX, this.n + k));
+  },
+  draw(ctx){
+    clear(ctx);
+    const x0 = 40, y0 = 28, s = 6, cols = this.COLS, c = this.counts; let e = 0;
+    for (let b = 0; b < this.N; b++){ const v = c[b]; if (!v) e++; ctx.fillStyle = v === 0 ? C.line : v === 1 ? C.accent2 : v === 2 ? C.accent : C.fg; ctx.globalAlpha = v ? 0.9 : 0.5; ctx.fillRect(x0 + (b % cols) * s, y0 + Math.floor(b / cols) * s, s - 1, s - 1); }
+    ctx.globalAlpha = 1; ctx.font = '12px system-ui'; ctx.textAlign = 'left';
+    let lx = 40; for (const [col, a, lab] of [[C.line, 0.5, 'empty'], [C.accent2, 0.9, '1 letter'], [C.accent, 0.9, '2'], [C.fg, 0.9, '3 or more']]){ ctx.fillStyle = col; ctx.globalAlpha = a; ctx.fillRect(lx, 200, 10, 10); ctx.globalAlpha = 1; ctx.fillStyle = C.muted; ctx.fillText(lab, lx + 14, 210); lx += ctx.measureText(lab).width + 32; }
+    ctx.textAlign = 'right'; ctx.fillText(this.n || this.k ? `${big(this.k < this.N && !this.n ? this.k : this.N)} letters, ${big(e)} boxes empty` : '', W - 40, 20);
+  },
+  readout(){ return this.n ? digits(this.n * this.N / this.empty) : '—'; },
+  sub(){ return `${big(this.n)} rounds, ${big(this.empty)} empty of ${big(this.n * this.N)}, boxes ÷ empty`; }
+});
+
+// 8. The 45° spiral: n straight steps per radian of turn, each at 45° to the line back to the centre. The radius grows by a
+// fixed factor per step; the growth per radian tends to e.
+EXPS.push({
+  name: 'The 45° spiral', hint: 'always 45° to the line home',
+  blurb: 'Walk away from a post, always keeping your path at 45° to the line back to the post. You trace an equiangular spiral, and every radian of turn multiplies your distance by e. Here the walk is made of straight steps, n per radian, and the growth per radian creeps up to e as the steps shrink. A nautilus shell is the same curve with a different angle.',
+  MAX: 1e5, TH: 5.2,
+  range: { label: 'steps per radian', min: 30, max: 500, get(){ return logSlider.fromN(this.n); }, set(v){ this.n = clamp(logSlider.toN(v), 2, this.MAX); this.acc = 0; } },
+  reset(){ this.n = 2; this.acc = 0; },
+  done(){ return this.n >= this.MAX; },
+  step(dt){ if (this.done()) return; this.acc += dt; if (this.n < 10){ if (this.acc > 0.5){ this.acc = 0; this.n++; } } else if (this.acc > 0.06){ this.acc = 0; this.n = Math.min(this.MAX, Math.ceil(this.n * 1.08)); } },
+  ratio(){ const t = Math.tan(1 / this.n), c = Math.SQRT1_2, s = t / (c - c * t); return Math.sqrt(1 + s * s + 2 * s * c); },   // radius factor per step
+  growth(){ return this.ratio() ** this.n; },
+  draw(ctx){
+    clear(ctx);
+    const n = this.n, G = this.growth(), th1 = this.TH, N = Math.ceil(th1 * n), m = Math.max(1, Math.ceil(N / 2500)), ph = Math.PI - th1;
+    const U = k => { const th = k / n, r = G ** (th - th1), a = ph + th; return [r * Math.cos(a), r * Math.sin(a)]; };   // unit coordinates: the walk ends at distance 1, pointing left
+    let x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+    for (let k = 0; k <= N; k += m){ const [x, y] = U(k); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    const f = Math.min((W - 70) / (x1 - x0), (H - 70) / (y1 - y0)), cx = (W - (x0 + x1) * f) / 2, cy = (H - 16 - (y0 + y1) * f) / 2;   // fit the walk in the picture
+    const P = k => { const [x, y] = U(k); return [cx + x * f, cy + y * f]; };
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]); ctx.beginPath();
+    for (const k of [N - n, N]){ const [x, y] = P(k); ctx.moveTo(cx, cy); ctx.lineTo(x, y); }   // the last radian of turn
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(cx, cy, 26, ph + th1 - 1, ph + th1); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('1 radian', cx + 44 * Math.cos(ph + th1 - 0.5), cy + 44 * Math.sin(ph + th1 - 0.5) + 4);
+    ctx.fillStyle = C.fg; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, 7); ctx.fill();
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let k = 0; k <= N; k += m){ const [x, y] = P(k); ctx[k ? 'lineTo' : 'moveTo'](x, y); }
+    ctx.stroke();
+    if (n <= 24){ ctx.fillStyle = C.accent; for (let k = 0; k <= N; k++){ const [x, y] = P(k); ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); } }
+    const [ex, ey] = P(N), [qx, qy] = P(N - 1), hd = Math.atan2(ey - qy, ex - qx), rd = Math.atan2(ey - cy, ex - cx);   // the last step and the line home
+    ctx.strokeStyle = C.muted; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + 28 * Math.cos(hd), ey + 28 * Math.sin(hd)); ctx.stroke();
+    ctx.beginPath(); ctx.arc(ex, ey, 14, rd + Math.PI, hd, hd < rd + Math.PI); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.textAlign = 'left'; ctx.fillText('45°', ex + 6, ey - 16);
+    ctx.textAlign = 'right'; ctx.fillText(`${big(n)} steps per radian`, W - 10, H - 10);
+  },
+  readout(){ return digits(this.growth()); },
+  sub(){ return `×${this.ratio().toFixed(6)} per step, ${big(this.n)} steps per radian`; }
+});
+// 9. Its own slope: the base b whose curve y = b^x has slope 1 at x = 0, found by halving the interval [2, 3].
+// The slope is measured numerically, (b^h − b^−h) / 2h, not read off a logarithm.
+EXPS.push({
+  name: 'Its own slope', hint: 'the curve that climbs as steeply as it is high',
+  blurb: 'Draw y = bˣ. Every such curve passes through 1 at x = 0; its slope there is what makes the base special. For b = 2 the slope is 0.69, for b = 3 it is 1.10. Exactly one base gives slope 1, and then the slope equals the height everywhere along the curve: the curve that is its own slope. That base is e. Here it is pinned down by halving the gap between 2 and 3, one binary digit per step.',
+  MAX: 30, H: 1e-5,
+  range: { label: 'halvings', min: 0, max: 30, get(){ return this.k; }, set(v){ this.setK(v); this.acc = 0; } },
+  reset(){ this.setK(0); this.acc = 0; },
+  slope(b){ return (b ** this.H - b ** -this.H) / (2 * this.H); },
+  setK(k){ let lo = 2, hi = 3; for (let i = 0; i < k; i++){ const m = (lo + hi) / 2; if (this.slope(m) < 1) lo = m; else hi = m; } this.k = k; this.lo = lo; this.hi = hi; },
+  done(){ return this.k >= this.MAX; },
+  step(dt){ if (this.done()) return; this.acc += dt; if (this.acc > 0.45){ this.acc = 0; this.setK(this.k + 1); } },
+  draw(ctx){
+    clear(ctx);
+    const X = x => 160 + x * 90, Y = y => 220 - y * 50;
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.moveTo(X(0), 0); ctx.lineTo(X(0), H); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    for (const v of [-1, 1]){ ctx.beginPath(); ctx.moveTo(X(v), Y(0)); ctx.lineTo(X(v), Y(0) + 5); ctx.stroke(); ctx.fillText(String(v), X(v), Y(0) + 17); }
+    ctx.textAlign = 'right'; for (const v of [1, 2, 3]){ ctx.beginPath(); ctx.moveTo(X(0) - 4, Y(v)); ctx.lineTo(X(0), Y(v)); ctx.stroke(); ctx.fillText(String(v), X(0) - 7, Y(v) + 4); }
+    ctx.strokeStyle = C.fg; ctx.setLineDash([3, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(-1.4), Y(1 - 1.4)); ctx.lineTo(X(1.4), Y(1 + 1.4)); ctx.stroke(); ctx.setLineDash([]);   // slope 1 through (0, 1)
+    ctx.fillStyle = C.fg; ctx.textAlign = 'left'; ctx.fillText('slope 1', X(0.95), Y(2.15));
+    for (const [b, col] of [[this.lo, C.accent2], [this.hi, C.accent]]){
+      ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.beginPath();
+      for (let i = 0; i <= 120; i++){ const x = -1.7 + 3.4 * i / 120; ctx[i ? 'lineTo' : 'moveTo'](X(x), Y(b ** x)); }
+      ctx.stroke();
+      const s = this.slope(b); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(-0.9), Y(1 - 0.9 * s)); ctx.lineTo(X(0.9), Y(1 + 0.9 * s)); ctx.stroke();   // the tangent at (0, 1)
+    }
+    ctx.fillStyle = C.accent2; ctx.fillText(`b = ${this.lo.toFixed(Math.min(9, Math.ceil(this.k * 0.3)))}`, 10, 20); ctx.fillStyle = C.accent; ctx.fillText(`b = ${this.hi.toFixed(Math.min(9, Math.ceil(this.k * 0.3)))}`, 10, 38);
+    ctx.fillStyle = C.fg; ctx.beginPath(); ctx.arc(X(0), Y(1), 3.5, 0, 7); ctx.fill();
+  },
+  readout(){ return between(this.lo, this.hi); },
+  sub(){ return `slopes at 0: ${this.slope(this.lo).toFixed(5)} and ${this.slope(this.hi).toFixed(5)}`; }
+});
+
+// 10. Staircase mean: the geometric mean of 1..n sits at n/e (Stirling). Log-sum kept incrementally.
+EXPS.push({
+  name: 'Staircase mean', hint: 'the geometric mean of 1, 2, …, n',
+  blurb: 'Bars of height 1, 2, 3, …, n. Multiply all the heights together and take the n-th root: the geometric mean, the one height that would give the same product. It sits at n/e, almost exactly, however tall the staircase: n! ≈ (n/e)ⁿ, the heart of Stirling\'s formula, which also hides a √(2πn). So e ≈ n ÷ the mean. Slow: a million bars for four digits.',
+  MAX: 1e6,
+  range: { label: 'bars', min: 0, max: 600, get(){ return this.n ? logSlider.fromN(this.n) : 0; }, set(v){ this.setN(v ? logSlider.toN(v) : 0); } },
+  reset(){ this.n = 0; this.ls = 0; this.acc = 0; },
+  add(k){ for (let i = 0; i < k; i++){ this.n++; this.ls += Math.log(this.n); } },
+  setN(N){ this.n = 0; this.ls = 0; this.add(Math.min(N, this.MAX)); },
+  gm(){ return Math.exp(this.ls / this.n); },
+  done(){ return this.n >= this.MAX; },
+  step(dt){ if (this.done()) return; if (this.n < 8){ this.acc += dt; if (this.acc > 0.4){ this.acc = 0; this.add(1); } } else this.add(Math.min(this.MAX - this.n, Math.max(1, Math.ceil(this.n / 150)))); },
+  draw(ctx){
+    clear(ctx);
+    const n = this.n, x0 = 20, w = 280, base = 206, hmax = 176;
+    if (!n) return;
+    const bw = w / n, Y = v => base - v / n * hmax;
+    ctx.fillStyle = C.accent; ctx.globalAlpha = 0.85;
+    if (n <= 280){ for (let i = 1; i <= n; i++) ctx.fillRect(x0 + (i - 1) * bw, Y(i), Math.max(1, bw - (bw > 4 ? 1 : 0)), base - Y(i)); }
+    else { ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x0, Y(1)); ctx.lineTo(x0 + w, Y(n)); ctx.lineTo(x0 + w, base); ctx.closePath(); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    const g = this.gm(); ctx.strokeStyle = C.fg; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x0, Y(g)); ctx.lineTo(x0 + w, Y(g)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = C.fg; ctx.font = '12px system-ui'; ctx.textAlign = 'left'; ctx.fillText(`geometric mean ${g < 100 ? g.toFixed(2) : big(Math.round(g))}`, x0 + 4, Y(g) - 6);
+    ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.fillText(`n = ${big(n)}`, x0 + w, Y(n) - 6);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x0, base + 1); ctx.lineTo(x0 + w, base + 1); ctx.stroke();
+  },
+  readout(){ return this.n ? digits(this.n / this.gm()) : '—'; },
+  sub(){ return `${big(this.n)} bars, mean height ${this.n ? this.gm().toFixed(3) : '—'}, n ÷ mean`; }
+});
+
+// 11. Squares in a rectangle: Euclid's algorithm on an e × 1 rectangle. The leftover strip always sits in the top-right
+// corner, which stays put on screen, so the zoom is exact. The counts follow Euler's pattern 2; 1, 2, 1, 1, 4, 1, 1, 6, …
+EXPS.push({
+  name: 'Squares in a rectangle', hint: 'cut off the biggest squares, repeat',
+  blurb: 'Take a rectangle e wide and 1 tall. Cut off the biggest squares you can, then do the same with the strip that is left, and again. The number of squares at each stage runs 2, 1, 2, 1, 1, 4, 1, 1, 6, 1, 1, 8, … and the pattern goes on for ever (Euler, 1737). For π the same game gives 3, 7, 15, 1, 292, … with no pattern at all. Reading the counts back as a continued fraction gives e; the view zooms in on the leftover strip.',
+  MAX: 14, PER: 0.8,
+  range: { label: 'stages', min: 0, max: 14, get(){ return this.k; }, set(v){ this.k = v; this.acc = this.PER; } },
+  reset(){ this.k = 0; this.acc = 0; },
+  a(k){ return k === 0 ? 2 : k % 3 === 2 ? 2 * (k + 1) / 3 : 1; },   // the continued fraction of e
+  done(){ return this.k >= this.MAX && this.acc >= this.PER; },
+  step(dt){ if (this.done()) return; this.acc += dt; if (this.acc >= this.PER && this.k < this.MAX){ this.k++; this.acc = 0; } },
+  stages(){   // for each stage: the rectangle (w, h) measured from the corner, and whether it is wide
+    const out = []; let w = Math.E, h = 1;
+    for (let k = 0; k <= this.MAX; k++){ const wide = w >= h; out.push({ w, h, wide }); if (wide) w -= this.a(k) * h; else h -= this.a(k) * w; }
+    return out;
+  },
+  conv(k){ let p0 = 1, q0 = 0, p1 = this.a(0), q1 = 1; for (let i = 1; i <= k; i++){ const a = this.a(i); [p0, p1] = [p1, a * p1 + p0]; [q0, q1] = [q1, a * q1 + q0]; } return p1 / q1; },
+  draw(ctx){
+    clear(ctx);
+    const st = this.stages(), k = this.k, fr = Math.min(1, this.acc / this.PER), L = s => Math.max(s.w, s.h);
+    const Lk = k < this.MAX ? Math.exp(Math.log(L(st[k])) * (1 - fr) + Math.log(L(st[k + 1])) * fr) : L(st[k]);   // size of the stage in focus, eased in log
+    const Z = (Math.E / Lk) ** 0.85, f = 300 / Math.E * Z, cx = W - 10, cy = 30;   // zoom about the top-right corner, lagging the shrinking strips
+    const box = (x, y, s, col) => {   // x, y: distance from the corner, leftwards and downwards; clipped so huge squares stay exact
+      const px1 = Math.min(W + 2, cx - x * f), px0 = Math.max(-2, cx - (x + s) * f), py0 = Math.max(-2, cy + y * f), py1 = Math.min(H + 2, cy + (y + s) * f);
+      if (px1 < -2 || py0 > H + 2) return;
+      ctx.fillStyle = col; ctx.fillRect(px0, py0, px1 - px0, py1 - py0); if (px1 - px0 > 3){ ctx.strokeStyle = C.bg; ctx.lineWidth = 1; ctx.strokeRect(px0, py0, px1 - px0, py1 - py0); }
+    };
+    const cols = [C.accent, C.accent2, C.muted];
+    for (let i = 0; i <= Math.min(k, this.MAX - 1); i++){
+      const s = st[i], a = this.a(i), side = s.wide ? s.h : s.w;
+      for (let j = 0; j < a; j++) s.wide ? box(s.w - (j + 1) * side, 0, side, cols[i % 3]) : box(0, s.h - (j + 1) * side, side, cols[i % 3]);
+    }
+    const r = st[Math.min(k + 1, this.MAX)]; ctx.strokeStyle = C.fg; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.strokeRect(cx - r.w * f, cy, r.w * f, r.h * f); ctx.setLineDash([]);   // the leftover strip
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 2; ctx.strokeRect(Math.max(-2, cx - Math.E * f), cy, Math.min(W + 4, Math.E * f), Math.min(H + 4, f));
+    if (Z > 1.02) zoomLabel(ctx, Z);
+  },
+  readout(){ return digits(this.conv(this.k), 9); },
+  sub(){ const t = []; for (let i = 0; i <= this.k; i++) t.push(this.a(i)); return `squares per stage: ${t.join(', ')}${this.k < this.MAX ? ', …' : ''}`; }
+});
+
+// 12. The 37% rule (the secretary problem): skip the first n/e candidates, then take the first one better than all before.
+// The best one is hired with chance → 1/e. For a finite line the chance is a little higher, so e is approached from below.
+EXPS.push({
+  name: 'The 37% rule', hint: 'look first, then leap',
+  blurb: 'Candidates come by one at a time in random order; you must hire on the spot or never. The best strategy: let the first 37% go by, then take the first one better than everyone you have seen. You land the very best one about 37% of the time. Both 37s are 1/e. With few candidates the odds are a bit better than 1/e, so the digits stop early; more candidates, closer to e.',
+  select: { label: 'candidates', options: [[10, '10'], [100, '100'], [1000, '1 000']], get(){ return this.N; }, set(v){ this.N = +v; this.reset(); } },
+  N: 100, MAX: 1e5,
+  reset(){ this.seed = newSeed(); this.n = 0; this.wins = 0; this.cur = null; this.acc = 0; this.K = Math.round(this.N / Math.E); },
+  trial(i){
+    const N = this.N, K = this.K, h = new Float32Array(N); let best = 0, m = 0, pick = N - 1;
+    for (let j = 0; j < N; j++){ h[j] = mix(this.seed, i * 1024 + j); if (h[j] > h[best]) best = j; }
+    for (let j = 0; j < K; j++) if (h[j] > m) m = h[j];
+    for (let j = K; j < N; j++) if (h[j] > m){ pick = j; break; }
+    return { h, best, pick, win: pick === best };
+  },
+  add(N){ for (let i = this.n; i < N; i++) if (this.trial(i).win) this.wins++; this.n = N; },
+  done(){ return this.n >= this.MAX; },
+  step(dt){
+    if (this.done()) return;
+    if (this.n < 6){ this.acc += dt; if (this.acc > 1.1){ this.acc = 0; this.add(this.n + 1); this.cur = this.trial(this.n - 1); } return; }
+    const k = this.n < 100 ? 2 : this.n < 2000 ? 20 : this.N >= 1000 ? 200 : 1000; this.add(Math.min(this.MAX, this.n + k)); this.cur = this.trial(this.n - 1);
+  },
+  draw(ctx){
+    clear(ctx);
+    const N = this.N, K = this.K, x0 = 16, w = 288, base = 196, bw = w / N, t = this.cur;
+    ctx.fillStyle = C.line; ctx.globalAlpha = 0.5; ctx.fillRect(x0, 30, K * bw, base - 30); ctx.globalAlpha = 1;
+    ctx.fillStyle = C.muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('just look', x0 + K * bw / 2, 22); ctx.fillText('first better than all so far', x0 + K * bw + (w - K * bw) / 2, 22);
+    if (t){
+      for (let j = 0; j < N; j++){ const hh = 20 + t.h[j] * 140; ctx.fillStyle = j === t.best ? C.accent2 : j === t.pick ? C.accent : C.fg; ctx.globalAlpha = j === t.best || j === t.pick ? 1 : 0.6; ctx.fillRect(x0 + j * bw, base - hh, Math.max(0.5, bw - (bw > 3 ? 1 : 0)), hh); }
+      ctx.globalAlpha = 1;
+      const px = x0 + (t.pick + 0.5) * bw; ctx.fillStyle = C.accent; ctx.beginPath(); ctx.moveTo(px, base + 4); ctx.lineTo(px - 6, base + 14); ctx.lineTo(px + 6, base + 14); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = C.muted; ctx.fillText(t.win ? 'hired the best one' : 'missed: the best one (blue) was ' + (t.best < t.pick ? 'already gone' : 'still to come'), W / 2, base + 30);
+    }
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x0, base + 1); ctx.lineTo(x0 + w, base + 1); ctx.stroke();
+  },
+  readout(){ return this.n ? digits(this.n / this.wins) : '—'; },
+  sub(){ return `${big(this.n)} hirings, ${big(this.wins)} got the best, hirings ÷ best`; }
+});
+
+// ---------- framework ----------
+const grid = document.getElementById('grid');
+const PLAY = '▶', PAUSE = '❚❚';
+function show(t){ t.est.innerHTML = t.exp.readout(); t.sub.textContent = t.exp.sub(); if (t.sync) t.sync(); }
+const finished = t => !!(t.exp.done && t.exp.done());
+function paint(t){
+  t.exp.draw(t.ctx);
+  if (t.running || finished(t)) return;
+  const ctx = t.ctx, label = t.fresh ? 'tap to animate' : 'paused: tap to continue', w = 150;
+  ctx.fillStyle = C.fg; ctx.globalAlpha = 0.78; ctx.beginPath(); ctx.roundRect(W / 2 - w / 2, H / 2 - 16, w, 32, 16); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.fillStyle = C.bg; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, W / 2, H / 2); ctx.textBaseline = 'alphabetic';
+}
+function setRunning(t, r){
+  if (r && finished(t)){ t.exp.reset(); t.fresh = true; }   // play after the end starts over
+  t.running = r; t.play.textContent = r ? PAUSE : PLAY; if (r){ t.fresh = false; if (!t.played){ t.played = true; track('replay', { level: t.id }); } } paint(t); }
+const tiles = EXPS.map((exp, idx) => {
+  const el = document.createElement('section'); el.className = 'tile';
+  el.innerHTML = `<h2>${exp.name} <small>${exp.hint}</small></h2><canvas width="${W * DPR}" height="${H * DPR}"></canvas><div class="est"></div><div class="sub"></div><div class="ctl"><button class="play">▶</button></div><p class="blurb">${exp.blurb}</p>`;
+  grid.appendChild(el);
+  const cv = el.querySelector('canvas'), ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
+  const t = { exp, el, ctx, id: 'e' + (idx + 1), est: el.querySelector('.est'), sub: el.querySelector('.sub'), play: el.querySelector('.play'), running: false, fresh: true, visible: false, played: false };
+  const ctl = el.querySelector('.ctl'), syncs = [];
+  if (exp.select){
+    const sel = document.createElement('select');
+    for (const [v, l] of exp.select.options){ const o = document.createElement('option'); o.value = v; o.textContent = l; sel.appendChild(o); }
+    const lab = document.createElement('label'); lab.textContent = exp.select.label; lab.appendChild(sel); ctl.appendChild(lab);
+    sel.addEventListener('change', () => { exp.select.set.call(exp, sel.value); setRunning(t, true); show(t); });
+    syncs.push(() => { sel.value = exp.select.get.call(exp); });
+  }
+  if (exp.range){
+    const r = document.createElement('input'); r.type = 'range'; r.min = exp.range.min; r.max = exp.range.max;
+    const lab = document.createElement('label'); lab.textContent = exp.range.label; lab.appendChild(r); ctl.appendChild(lab);
+    r.addEventListener('input', () => { const keep = exp.range.set.call(exp, +r.value); t.fresh = false; setRunning(t, keep === true); show(t); });
+    syncs.push(() => { r.value = exp.range.get.call(exp); });
+  }
+  t.sync = () => syncs.forEach(f => f());
+  t.play.addEventListener('click', () => setRunning(t, !t.running));
+  cv.addEventListener('pointerdown', e => {
+    if (!t.running){ setRunning(t, true); return; }
+    if (exp.tap){ const b = cv.getBoundingClientRect(); exp.tap((e.clientX - b.left) / b.width * W, (e.clientY - b.top) / b.height * H); paint(t); show(t); }
+    else setRunning(t, false);
+  });
+  exp.reset(); paint(t); show(t);
+  return t;
+});
+
+const io = new IntersectionObserver(es => es.forEach(e => { const t = tiles.find(t => t.el === e.target); if (t) t.visible = e.isIntersecting; }), { rootMargin: '80px' });
+tiles.forEach(t => io.observe(t.el));
+
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  for (const t of tiles){ if (!t.visible || !t.running) continue; t.exp.step(dt); if (finished(t)) setRunning(t, false); else paint(t); show(t); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__e = { tiles, paint, show, setRunning };
+
+// ---------- likes, feedback, counters (shared API, game 'e') ----------
+const $ = s => document.querySelector(s);
+const ONLINE = location.protocol.startsWith('http');
+let toastT; function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
+function track(n, data = {}){ if (!ONLINE) return; try { const body = JSON.stringify({ n, game: 'e', ...data }); if (navigator.sendBeacon) navigator.sendBeacon('/api/event', body); else fetch('/api/event', { method: 'POST', body, keepalive: true }).catch(() => {}); } catch (e) {} }
+if (/\.(romke\.com|vercel\.app)$/.test(location.hostname)){ const s = document.createElement('script'); s.defer = true; s.src = '/_vercel/insights/script.js'; document.head.appendChild(s); }
+const liked = () => { try { return localStorage.getItem('e-liked') === '1'; } catch (e) { return false; } };
+async function loadLikes(){ if (!ONLINE) return;
+  try { const r = await fetch('/api/like?game=e'); if (!r.ok) throw 0; const j = await r.json(); $('#likeCount').textContent = j.count ? ' · ' + j.count : ''; } catch (e) {}
+  if (liked()){ $('#likeHeart').textContent = '❤️'; $('#likeLabel').textContent = 'Liked'; } }
+$('#btnLike').addEventListener('click', async () => {
+  if (liked()){ toast('You already liked it. Thanks!'); return; }
+  if (!ONLINE){ toast('Likes need the online version.'); return; }
+  try { const r = await fetch('/api/like', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'e' }) });
+    if (r.status === 503){ toast('Likes are not switched on yet.'); return; } if (!r.ok) throw 0; const j = await r.json();
+    try { localStorage.setItem('e-liked', '1'); } catch (e) {}
+    $('#likeHeart').textContent = '❤️'; $('#likeLabel').textContent = 'Liked'; $('#likeCount').textContent = j.count ? ' · ' + j.count : ''; toast('Thank you!');
+  } catch (e) { toast('Could not reach the server.'); } });
+$('#btnFeedback').addEventListener('click', () => { $('#fbText').value = ''; $('#fbSend').disabled = false; $('#fb').showModal(); $('#fbText').focus(); });
+$('#fbCancel').addEventListener('click', () => $('#fb').close());
+$('#fbSend').addEventListener('click', async () => {
+  const text = $('#fbText').value.trim(); if (!text){ $('#fbText').focus(); return; }
+  if (!ONLINE){ toast('Feedback needs the online version.'); return; }
+  $('#fbSend').disabled = true;
+  try { const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'e', text, level: 'e' }) });
+    if (r.status === 503){ toast('Feedback is not switched on yet.'); $('#fbSend').disabled = false; return; }
+    if (r.status === 429){ toast('That is enough for today, thank you!'); $('#fb').close(); return; }
+    if (!r.ok) throw 0; $('#fb').close(); toast('Thank you, received!');
+  } catch (e) { toast('Could not send. Try again later.'); $('#fbSend').disabled = false; } });
+loadLikes();
+track('start', { level: 'e0' });   // one per page view; each tile's first play is a 'replay' with its number
+})();
+</script>
+</body>
+</html>

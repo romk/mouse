@@ -16,6 +16,11 @@
       "permanent": true
     },
     {
+      "source": "/e",
+      "destination": "/e/",
+      "permanent": true
+    },
+    {
       "source": "/puzzle",
       "destination": "/",
       "permanent": true
